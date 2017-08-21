@@ -1,0 +1,174 @@
+/*
+ ****************************
+ *		UI functions		*
+ * (mostly stolen from the  *
+ *  D&D RPG sheets        ) *
+ ****************************
+ */
+
+	/*	Print an error message to the screen.  Requires click to proceed.
+	 *	@param	{string}		msg				message to print
+	 */
+function showError (msg)
+{
+	var ui = SpreadsheetApp.getUi();
+	ui.alert("ERROR", msg, ui.ButtonSet.OK);
+}
+
+	/*	Ask the user for a string and return it.  Return undefined if the user cancels.
+	 *	@param	{title}			string			title for the prompt dialog
+	 *	@param	{prompt}		string			prompt to show the user
+	 *	@return	{string}						what the user typed; undefined if they cancelled
+	 */
+function prompt (title, prompt)
+{
+	var ui = SpreadsheetApp.getUi();
+	var result = ui.prompt(title, prompt, ui.ButtonSet.OK_CANCEL);
+	return result.getSelectedButton() == ui.Button.OK ? result.getResponseText() : undefined;
+}
+
+
+/*
+ ********************
+ *		Tasks		*
+ ********************
+ */
+
+function newTask ()
+{
+	var taskname = prompt("NEW TASK", "Name of task:");
+	if (taskname == undefined)
+	{
+		return;
+	}
+	var priority = prompt("NEW TASK", "Priority for new task:");
+	if (priority == undefined)
+	{
+		return;
+	}
+
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tasks");
+	var data = tab.activate().getDataRange().getValues();
+	for (var i = 0; i < data.length; ++i)
+	{
+		if (data[i][0] == "")
+		{
+			Logger.log("found blank row " + row);
+			tab.getRange(i + 1, 1).setValues([priority, taskname]);
+			resort();
+			return;
+		}
+	}
+	/* no blank row found; make one */
+	tab.appendRow([priority, taskname]);
+	resort();
+}
+
+
+/*
+ ********************
+ *		Projects	*
+ ********************
+ */
+
+function copyBlockToHistory ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	if (tab.getName() != "Projects")
+	{
+		showError("Must be on Projects tab");
+		return;
+	}
+	var pos = tab.getActiveCell();
+	if (pos.getColumn() > 4)
+	{
+		showError("Must be in the Blocks To Do columns");
+		return;
+	}
+	var src_row = pos.getRow();
+	if (src_row <= tab.getFrozenRows())
+	{
+		showError("Get out of the header!");
+		return;
+	}
+
+	var src_data = tab.getRange(src_row, 1, 1, 4);
+	var history = me.getSheetByName("ProjectHistory");
+	var new_row = history.getFrozenRows() + 1;
+	history.insertRowBefore(new_row);
+	var dest_row = history.getRange(new_row, 1);
+	src_data.copyTo(dest_row);
+	var today = new Date();
+	dest_row.setValue( (today.getMonth() + 1) + '/' + today.getDate() + '/' + today.getFullYear() );
+	dest_row.setHorizontalAlignment("right");
+	src_data.getCell(1,1).setValue("X");
+}
+
+
+/*
+ ************************
+ *		multiple tabs	*
+ ************************
+ */
+
+function resort()
+{
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+	var data = tab.getDataRange().getValues();
+	var to_delete = [];
+	for (var i = data.length - 1; i >= 0; --i)
+	{
+		if (data[i][0] == "X")
+		{
+			var row = i + 1;
+			Logger.log("going to delete row " + row);
+			to_delete.push(row);
+		}
+	}
+	for (var i = 0; i < to_delete.length; ++i)
+	{
+		var row = to_delete[i];
+		Logger.log("about to delete row " + row);
+		tab.deleteRow(row);
+	}
+	tab.sort(1);
+	tab.getRange(tab.getFrozenRows()+1, tab.getFrozenColumns()+1).activate();
+}
+
+
+function jumpToBottom ()
+{
+	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var values = tab.getRange('A:A').getValues();
+
+	var ct = 0;
+	while ( values[ct][0] != "" )
+	{
+		++ct;
+	}
+	++ct; // change 0-index to 1-index
+	tab.getRange(ct, 1).activate();
+}
+
+
+/*
+ ************************
+ *		sheet setup		*
+ ************************
+ */
+
+function onOpen ()
+{
+	var ui = SpreadsheetApp.getUi();
+	ui.createMenu("Todo")
+		.addItem("Resort",   "resort")
+		.addItem("Find Blank Row", "jumpToBottom")
+		.addSeparator()
+		.addItem("New Task", "newTask")
+		.addItem("Mark Block Done", "copyBlockToHistory")
+		.addToUi();
+};
+
