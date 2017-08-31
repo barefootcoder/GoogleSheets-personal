@@ -1,6 +1,6 @@
 /*
  ****************************
- *		UI functions		*
+ *	General UI functions	*
  * (mostly stolen from the  *
  *  D&D RPG sheets        ) *
  ****************************
@@ -30,6 +30,265 @@ function prompt (title, prompt)
 
 /*
  ********************
+ *	 Date Stuff		*
+ ********************
+ */
+
+function today ()
+{
+	var today = new Date();
+	// Subtract 6 hours so midnight - 6am will be "yesterday."
+	// See: https://stackoverflow.com/questions/1050720/adding-hours-to-javascript-date-object
+	today.setTime(today.getTime() - 6*60*60*1000);
+	return (today.getMonth() + 1) + '/' + today.getDate() + '/' + today.getFullYear();
+}
+
+
+/*
+ ********************
+ *	Sheet Utility	*
+ ********************
+ */
+
+	/*	Return the first empty row on the requested sheet.
+	 *	@param	{string}		tab_name		name of the tab to find the first empty row of
+	 *	@param	{number}		column			colum to check for values (default: 1)
+	 *	@return	{Range}							range representing the first empty row
+	 */
+function getFirstEmptyRow (tab_name, column)
+{
+	// Handle defaults, since GAS JS is too old to do it in the signature.
+	if ( column == undefined )
+	{
+		column = 1;
+	}
+
+	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName(tab_name);
+	var first_datarow = tab.getFrozenRows() + 1;
+	var tab_height = tab.getMaxRows() - first_datarow + 1;
+	var values = tab.getSheetValues(first_datarow, column, tab_height, 1);
+	if (typeof values == 'undefined' || typeof values[0] == 'undefined')
+	{
+		showError("Cannot find any rows at all from row " + first_datarow + " up to row " + tab_height);
+		return;
+	}
+
+	var ct = 0;
+	Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow));
+	while ( values[ct][0] != "" )
+	{
+		Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow));
+		++ct;
+	}
+	ct += first_datarow;							// skips frozen rows and switches to 1-index
+	return tab.getRange(ct + ":" + ct); 			// return whole row
+}
+
+
+/*
+ ************************
+ * general object funcs *
+ ************************
+ */
+
+function tabHeaders (tab)
+{
+	var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getLastColumn());
+	return headers[0];
+}
+
+function getColumnOfHeader (tab, header)
+{
+	var headers = tabHeaders(tab);
+	for (var i=0, len=headers.length; i < len; ++i)
+	{
+		if (headers[i] == header)
+		{
+			return i + 1;							// go from 0-origin to 1-origin
+		}
+	}
+	return;											// undefined if not found
+}
+
+function getID (range)
+{
+	var row = range.getRow();
+	var tab = range.getSheet();
+	var last_header_row = tab.getFrozenRows();
+	if (row <= last_header_row)
+	{
+		showError("Get out of the header!");
+		return;
+	}
+
+	var id_col = getColumnOfHeader(tab, "ID");
+	if (id_col == undefined)
+	{
+		showError("You're not on a sheet with an ID column.");
+		return;
+	}
+	var vals = tab.getSheetValues(row, id_col, 1, 1);
+	return vals[0][0];
+}
+
+function getRowForObject (id)
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("RawData");
+	var header_rows = tab.getFrozenRows();
+	var ids = tab.getSheetValues(header_rows + 1, 1, tab.getLastRow(), 1);
+	for (var i=0, len=ids.length; i < len; ++i)
+	{
+		if (ids[i][0] == id)
+		{
+			// go from 0-origin to 1-origin
+			return tab.getRange(header_rows + i + 1, 1, 1, tab.getMaxColumns());
+		}
+	}
+	return;											// undefined if not found
+}
+
+var data_headers;
+function dataHeaderColumn (column)
+{
+	if (data_headers == undefined)
+	{
+		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
+		var headers = tabHeaders(tab);
+		data_headers = {};
+		for (var i=0, len=headers.length; i < len; ++i)
+		{
+			var header = headers[i].toLowerCase();
+			data_headers[header] = i + 1;			// go from 0-origin to 1-origin
+		}
+	}
+
+	if (data_headers.hasOwnProperty(column))
+	{
+		return data_headers[column];
+	}
+	else
+	{
+		showError("No such column in data: " + column);
+		return;
+	}
+}
+
+function dataSet (row, column, value)
+{
+	if (!typeof(row) == "Range")
+	{
+		showError("dataSet: first arg must be a Range");
+		return;
+	}
+
+	var col = dataHeaderColumn(column);
+	if (col == undefined)
+	{
+		return;
+	}
+	else
+	{
+		row.getCell(1, col).setValue(value);
+		return 1;
+	}
+}
+
+function newItem (object)
+{
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
+	var headers = tabHeaders(tab);
+	var new_row = getFirstEmptyRow("RawData", 9);
+	if (new_row == undefined)
+	{
+		showError("can't find an empty row for a new item");
+		return;
+	}
+	if (!object.hasOwnProperty("description"))
+	{
+		showError("can't make an item without a description");
+		return;
+	}
+
+	for (var key in object)
+	{
+		// See: https://stackoverflow.com/questions/8312459/iterate-through-object-properties
+		// (God, Javascript is stupid ...)
+		if (object.hasOwnProperty(key))
+		{
+			if (dataSet(new_row, key, object[key]) == undefined)
+			{
+				return;
+			}
+		}
+	}
+}
+
+function updateItem (object)
+{
+	if (!object.hasOwnProperty("id"))
+	{
+		showError("Can't update item without ID.");
+		return;
+	}
+
+	var row = getRowForObject(object.id);
+	if (row == undefined)
+	{
+		showError("Illegal ID " + id + " (which should be impossible).");
+		return;
+	}
+
+	for (var key in object)
+	{
+		// see above
+		if (key != "id" && object.hasOwnProperty(key))
+		{
+			if (dataSet(row, key, object[key]) == undefined)
+			{
+				// error should have been shown by dataSet()
+				return;
+			}
+		}
+	}
+}
+
+function markCompleted ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var pos = tab.getActiveCell();
+	var id = getID(pos);
+	if (id == undefined)
+	{
+		return;
+	}
+
+	updateItem({ id: id, completed: today() });
+}
+
+
+/*
+ ********************
+ *		InTray		*
+ ********************
+ */
+
+function newInTray ()
+{
+	var descr = prompt("NEW ITEM", "Item to add to in tray:");
+	if (descr == undefined)
+	{
+		return;
+	}
+	newItem({ list: "InTray", added: today(), description: descr });
+}
+
+
+/*
+ ********************
  *		Tasks		*
  ********************
  */
@@ -49,7 +308,7 @@ function newTask ()
 
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tasks");
 	var data = tab.activate().getDataRange().getValues();
-	for (var i = 0; i < data.length; ++i)
+	for (var i=0; i < data.length; ++i)
 	{
 		if (data[i][0] == "")
 		{
@@ -70,40 +329,6 @@ function newTask ()
  *		Projects	*
  ********************
  */
-
-function copyBlockToHistory ()
-{
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getActiveSheet();
-	if (tab.getName() != "Projects")
-	{
-		showError("Must be on Projects tab");
-		return;
-	}
-	var pos = tab.getActiveCell();
-	if (pos.getColumn() > 4)
-	{
-		showError("Must be in the Blocks To Do columns");
-		return;
-	}
-	var src_row = pos.getRow();
-	if (src_row <= tab.getFrozenRows())
-	{
-		showError("Get out of the header!");
-		return;
-	}
-
-	var src_data = tab.getRange(src_row, 1, 1, 4);
-	var history = me.getSheetByName("ProjectHistory");
-	var new_row = history.getFrozenRows() + 1;
-	history.insertRowBefore(new_row);
-	var dest_row = history.getRange(new_row, 1);
-	src_data.copyTo(dest_row);
-	var today = new Date();
-	dest_row.setValue( (today.getMonth() + 1) + '/' + today.getDate() + '/' + today.getFullYear() );
-	dest_row.setHorizontalAlignment("right");
-	src_data.getCell(1,1).setValue("X");
-}
 
 
 /*
@@ -142,15 +367,18 @@ function jumpToBottom ()
 	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getActiveSheet();
-	var values = tab.getRange('A:A').getValues();
+	var tabname = tab.getName();
 
-	var ct = 0;
-	while ( values[ct][0] != "" )
+	var row;
+	if (tabname == "RawData")
 	{
-		++ct;
+		row = getFirstEmptyRow(tabname, 9);
 	}
-	++ct; // change 0-index to 1-index
-	tab.getRange(ct, 1).activate();
+	else
+	{
+		row = getFirstEmptyRow(tabname);
+	}
+	row.activate();
 }
 
 
@@ -164,11 +392,17 @@ function onOpen ()
 {
 	var ui = SpreadsheetApp.getUi();
 	ui.createMenu("Todo")
+		.addItem("New Item", "newInTray")
+		.addItem("New Task", "newTask")
+		.addItem("Mark Completed", "markCompleted")
+		.addSeparator()
 		.addItem("Resort",   "resort")
 		.addItem("Find Blank Row", "jumpToBottom")
 		.addSeparator()
-		.addItem("New Task", "newTask")
-		.addItem("Mark Block Done", "copyBlockToHistory")
+		.addItem("Test", "testCurrentThing")
 		.addToUi();
-};
+}
 
+function testCurrentThing ()
+{
+}
