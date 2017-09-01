@@ -67,11 +67,9 @@ function getFirstEmptyRow (tab_name, column)
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName(tab_name);
 	var first_datarow = tab.getFrozenRows() + 1;
-	var tab_height = tab.getMaxRows() - first_datarow + 1;
-	var values = tab.getSheetValues(first_datarow, column, tab_height, 1);
-	if (typeof values == 'undefined' || typeof values[0] == 'undefined')
+	var values = getDataSlice(tab, { col: column, as: 'values' });
+	if (values == undefined)
 	{
-		showError("Cannot find any rows at all from row " + first_datarow + " up to row " + tab_height);
 		return;
 	}
 
@@ -82,8 +80,72 @@ function getFirstEmptyRow (tab_name, column)
 		Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow));
 		++ct;
 	}
-	ct += first_datarow;							// skips frozen rows and switches to 1-index
-	return tab.getRange(ct + ":" + ct); 			// return whole row
+	// go from 0-origin to 1-origin
+	// and account for header rows, which getDataColumn() throws away
+	return getDataSlice(tab, { row: ct + 1, after_headers: true, as: 'range' });
+}
+
+
+function getDataSlice (tab, opts)
+{
+	var return_as = opts["as"];
+	if (return_as == undefined)
+	{
+		showError("getDataSlice: must specify how to return");
+		return;
+	}
+
+	var start_row, start_col, num_rows, num_cols;
+	if (typeof(opts["row"]) != "undefined")
+	{
+		var header_cols = tab.getFrozenColumns();
+		start_row = opts["row"];
+		start_col = header_cols + 1;
+		num_rows  = 1;
+		num_cols  = tab.getMaxColumns() - header_cols;
+		if (opts["after_headers"])
+		{
+			start_row += tab.getFrozenRows();
+		}
+	}
+	else if (typeof(opts["col"]) != "undefined")
+	{
+		var header_rows = tab.getFrozenRows();
+		start_row = header_rows + 1;
+		start_col = opts["col"];
+		num_rows  = tab.getMaxRows() - header_rows;
+		num_cols  = 1;
+		if (opts["after_headers"])
+		{
+			start_col += tab.getFrozenColumns();
+		}
+	}
+	else
+	{
+		showError("getDataSlice: must specify either row or column");
+		return;
+	}
+
+	var range = tab.getRange(start_row, start_col, num_rows, num_cols);
+	if ( typeof range == 'undefined' )
+	{
+		showError("Cannot find any values to slice: " + start_row + ", " + start_col);
+		return;
+	}
+
+	if (return_as == "range")
+	{
+		return range;
+	}
+	else if (return_as == "values")
+	{
+		return range.getValues();
+	}
+	else
+	{
+		showError("getDataRow: illegal return type: " + return_as);
+		return;
+	}
 }
 
 
@@ -137,14 +199,16 @@ function getRowForObject (id)
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("RawData");
-	var header_rows = tab.getFrozenRows();
-	var ids = tab.getSheetValues(header_rows + 1, 1, tab.getLastRow(), 1);
+	// cheating a bit by assuming ID is always in column 1 (and no frozen cols)
+	// but this is also a performance enhancement, so I'll allow it
+	var ids = getDataSlice(tab, { col: 1, as: "values" });
 	for (var i=0, len=ids.length; i < len; ++i)
 	{
 		if (ids[i][0] == id)
 		{
 			// go from 0-origin to 1-origin
-			return tab.getRange(header_rows + i + 1, 1, 1, tab.getMaxColumns());
+			// and account for header rows, which getDataColumn() throws away
+			return getDataSlice(tab, { row: i + 1, after_headers: true, as: "range" });
 		}
 	}
 	return;											// undefined if not found
