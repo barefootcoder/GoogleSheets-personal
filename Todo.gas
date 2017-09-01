@@ -390,6 +390,53 @@ function newTask ()
 
 /*
  ********************
+ *		Daily		*
+ ********************
+ */
+
+function newDay ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("Today");
+	tab.activate();
+
+	var date = me.getRange("TodaysDate");
+	date.setValue( today() );
+
+	var templ = me.getSheetByName("DayTemplates");
+	var col = getColumnOfHeader(templ, "Today");
+	var values = getDataSlice(templ, { col: col, as: 'values' });
+	var schedule = getDataSlice(tab, { col: getColumnOfHeader(tab, "Schedule"), as: 'range' });
+	// cut schedule down to however many values we got back from the template
+	schedule = schedule.offset(0, 0, values.length);
+	schedule.setValues(values);
+}
+
+
+function saveDay ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("Today");
+	tab.activate();
+	var date = me.getRange("TodaysDateSortable").getValue();
+
+	// using hardcoded ID for diary sheet open
+	// less than ideal, but a PITA to do it any other way
+	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
+	var day = tab.copyTo(diary);
+	day.setName(date);
+
+	var start_col   = getColumnOfHeader(tab, "Pri");
+	var header_rows = tab.getFrozenRows();
+	var height = tab.getMaxRows() - header_rows;
+	var width  = tab.getMaxColumns() - start_col + 1;
+	var due_values = tab.getSheetValues(header_rows + 1, start_col, height, width);
+	day.getRange(header_rows + 1, start_col, height, width).setValues(due_values);
+}
+
+
+/*
+ ********************
  *		Projects	*
  ********************
  */
@@ -459,6 +506,9 @@ function onOpen ()
 		.addItem("New Item", "newInTray")
 		.addItem("New Task", "newTask")
 		.addItem("Mark Completed", "markCompleted")
+		.addSeparator()
+		.addItem("Start a New Day", "newDay")
+		.addItem("Save Day to Diary", "saveDay")
 		.addSeparator()
 		.addItem("Resort",   "resort")
 		.addItem("Find Blank Row", "jumpToBottom")
