@@ -94,7 +94,7 @@ function getFirstEmptyRow (tab_name, column)
 	Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow));
 	while ( values[ct][0] != "" )
 	{
-		Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow));
+		Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow) + " for tab " + tab_name);
 		++ct;
 	}
 	// go from 0-origin to 1-origin
@@ -461,6 +461,28 @@ function newInTray ()
 	newItem({ list: "InTray", added: today(), description: descr });
 }
 
+function emptyInTray ()
+{
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("InTray");
+	var first_row = tab.getFrozenRows() + 1;
+	var last_row = getFirstEmptyRow("InTray", 10).getRow() - 1;
+	if (first_row > last_row)
+	{
+		showError("InTray is already empty!");
+		return;
+	}
+
+	Logger.log("going from row " + last_row + " to row " + first_row);
+	for (var i=last_row; i >= first_row; --i)
+	{
+		var row = getDataSlice(tab, { row: i, as: 'range' });
+		var new_list = row.getValue();				// value of the first cell in the row
+		var id = getID(row);
+		updateItem({ id: id, list: new_list });
+		row.getCell(1, 1).clear();					// clear out the new_list value now that we've used it
+	}
+}
+
 
 /*
  ********************
@@ -622,6 +644,7 @@ function onOpen ()
 		.addItem("Mark Completed", "markCompleted")
 		.addItem("Cancel Item", "markCancelled")
 		.addSeparator()
+		.addItem("Empty InTray", "emptyInTray")
 		.addItem("Start a New Day", "newDay")
 		.addItem("Save Day to Diary", "saveDay")
 		.addSeparator()
