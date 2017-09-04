@@ -319,18 +319,39 @@ function updateItem (object)
 	}
 }
 
+
+function getIDofCurrentRow ()
+{
+	var pos = SpreadsheetApp.getActiveSpreadsheet().getActiveCell();
+	var id = getID(pos);
+	if (id == undefined)
+	{
+		showError("This row does not appear to be an item.");
+		return;
+	}
+	return id;
+}
+
 function markCompleted ()
 {
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getActiveSheet();
-	var pos = tab.getActiveCell();
-	var id = getID(pos);
+	var id = getIDofCurrentRow();
 	if (id == undefined)
 	{
 		return;
 	}
 
 	updateItem({ id: id, completed: today() });
+}
+
+function markCancelled ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+
+	updateItem({ id: id, list: 'Cancelled', completed: today() });
 }
 
 
@@ -505,7 +526,9 @@ function onOpen ()
 	ui.createMenu("Todo")
 		.addItem("New Item", "newInTray")
 		.addItem("New Task", "newTask")
+		.addSeparator()
 		.addItem("Mark Completed", "markCompleted")
+		.addItem("Cancel Item", "markCancelled")
 		.addSeparator()
 		.addItem("Start a New Day", "newDay")
 		.addItem("Save Day to Diary", "saveDay")
