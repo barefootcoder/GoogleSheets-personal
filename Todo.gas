@@ -563,9 +563,13 @@ function newDay ()
 	Logger.log("newDay: pulling new schedule");
 	var values = getDataSlice(templ, { col: col, as: 'values' });
 	var schedule = getDataSlice(tab, { col: getColumnOfHeader(tab, "Schedule"), as: 'range' });
+	Logger.log("newDay: finding old schedule");
+	Logger.log("newDay: going to get value at " + templ.getRange(2, 2).getA1Notation());
+	var start_time = templ.getRange(2, 2).getValue();
 	// cut schedule down to however many values we got back from the template
 	schedule = schedule.offset(0, 0, values.length);
 	schedule.setValues(values);
+	tab.getRange(1, 2).setValue(start_time);
 }
 
 
