@@ -172,6 +172,26 @@ function getDataSlice (tab, opts)
  ************************
  */
 
+// I cannot believe that I don't have this as a built-in method.  Apparently I
+// _should_ have it, but whatever Frankenstein version of JS that GAS uses is
+// flipping me the bird.
+// This implementation taken primarily from:
+// https://stackoverflow.com/questions/208016/how-to-list-the-properties-of-a-javascript-object
+function keys (object)
+{
+	var keys = [];
+	for (var key in object)
+	{
+		// See: https://stackoverflow.com/questions/8312459/iterate-through-object-properties
+		// (God, Javascript is stupid ...)
+		if (object.hasOwnProperty(key))
+		{
+			keys.push(key);
+		}
+	}
+	return keys;
+}
+
 function tabHeaders (tab)
 {
 	var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
@@ -233,22 +253,45 @@ function getRowForObject (id)
 	return;											// undefined if not found
 }
 
+function getObject (id)
+{
+	var values = getRowForObject(id).getValues()[0];
+	var obj = {};
+	for (var i=0, len=values.length; i < len; ++i)
+	{
+		Logger.log("getObject: calling dataHeaderColumn(" + (i + 1) + ")");
+		var header = dataHeaderColumn(i + 1);
+		if (header == undefined)
+		{
+			return;
+		}
+		obj[header] = values[i];
+	}
+	return obj;
+}
+
 var data_headers;
+var data_header_row;
 function dataHeaderColumn (column)
 {
 	if (data_headers == undefined)
 	{
 		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
-		var headers = tabHeaders(tab);
+		data_header_row = tabHeaders(tab);
 		data_headers = {};
-		for (var i=0, len=headers.length; i < len; ++i)
+		for (var i=0, len=data_header_row.length; i < len; ++i)
 		{
-			var header = headers[i].toLowerCase();
+			var header = data_header_row[i].toLowerCase();
+			data_header_row[i] = header;			// save LC version back to the array
 			data_headers[header] = i + 1;			// go from 0-origin to 1-origin
 		}
 	}
 
-	if (data_headers.hasOwnProperty(column))
+	if (typeof(column) == 'number' && column > 0 && column <= data_header_row.length)
+	{
+		return data_header_row[column - 1];
+	}
+	else if (typeof(column) == 'string' && data_headers.hasOwnProperty(column))
 	{
 		return data_headers[column];
 	}
@@ -295,19 +338,16 @@ function newItem (object)
 		return;
 	}
 
-	for (var key in object)
+	keys(object).forEach(function (key)
 	{
-		// See: https://stackoverflow.com/questions/8312459/iterate-through-object-properties
-		// (God, Javascript is stupid ...)
-		if (object.hasOwnProperty(key))
+		Logger.log("newItem: going to set " + key + " to " + object[key]);
+		if (dataSet(new_row, key, object[key]) == undefined)
 		{
-			Logger.log("newItem: going to set " + key + " to " + object[key]);
-			if (dataSet(new_row, key, object[key]) == undefined)
-			{
-				return;
-			}
+			return;
 		}
-	}
+	});
+
+	return new_row;
 }
 
 function updateItem (object)
@@ -337,6 +377,32 @@ function updateItem (object)
 			}
 		}
 	}
+}
+
+function splitItem ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+
+	var obj = getObject(id);
+	Logger.log("splitItem: object with keys: " + keys(obj).join());
+	// We'll use this object (which is just a copy of the values) to create a
+	// new object, with *most* of the same values.
+	delete obj.id;				// new object has to get its own ID
+	delete obj.completed;		// this is probably blank already, but certainly _should_ be
+	obj.added = today();		// we're adding it right now
+	var row = newItem(obj);
+	if (row == undefined)
+	{
+		return;
+	}
+	// meanwhile, close out the existing object
+	updateItem({ id: id, completed: today() });
+	// finally, let the user edit the new item if they want to
+	row.activate();
 }
 
 function jumpToItem ()
@@ -672,6 +738,7 @@ function onOpen ()
 				.addItem("Bump Item", "bumpItem")
 				.addItem("Push Item", "pushItem")
 				.addSeparator()
+				.addItem("Split (and Close) Item", "splitItem")
 				.addItem("Cancel Item", "markCancelled")
 			)
 		.addSeparator()
