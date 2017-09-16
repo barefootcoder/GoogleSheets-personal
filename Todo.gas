@@ -336,6 +336,23 @@ function updateItem (object)
 	}
 }
 
+function jumpToItem ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+
+	var row = getRowForObject(id);
+	if (row == undefined)
+	{
+		return;
+	}
+
+	row.activate();
+}
+
 
 function getIDofCurrentRow ()
 {
@@ -643,6 +660,9 @@ function onOpen ()
 		.addItem("Push Item", "pushItem")
 		.addItem("Mark Completed", "markCompleted")
 		.addItem("Cancel Item", "markCancelled")
+		.addSubMenu(ui.createMenu("More Edits")
+				.addItem("Jump to Full Edit", "jumpToItem")
+			)
 		.addSeparator()
 		.addItem("Empty InTray", "emptyInTray")
 		.addItem("Start a New Day", "newDay")
