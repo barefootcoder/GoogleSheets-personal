@@ -485,6 +485,26 @@ function markCancelled ()
 	updateItem({ id: id, list: 'Cancelled', completed: today(), description: descr });
 }
 
+function setDueDate (new_val)
+{
+	var item = getCurrentRow();
+	if (item == undefined)
+	{
+		return;
+	}
+
+	var due_col = dataHeaderColumn("due");
+	var cell = item.getCell(1, due_col);
+	if ( typeof(new_val) == "Date" )
+	{
+		dateIntoCell(new_val, cell);
+	}
+	else
+	{
+		cell.setValue( new_val );
+	}
+}
+
 function tweakPriority (amount)
 {
 	var item = getCurrentRow();
@@ -547,6 +567,47 @@ function tweakPriority (amount)
 
 function bumpItem () { tweakPriority(-1) }
 function pushItem () { tweakPriority(1)  }
+
+function pushItemArbitrary ()
+{
+	var push_amt = prompt("PUSH ITEM", "Push by (days) or push to (date):");
+	if (push_amt == undefined)
+	{
+		return;
+	}
+
+	// check to see whether it's a date or an offset
+	push_amt = push_amt.toLowerCase();
+	if ( new RegExp('/').test(push_amt) )			// prolly nicer-looking than `/\//.test` ...
+	{
+		setDueDate(push_amt);
+	}
+	else if ( /^[+-]?\d+$/.test(push_amt) )
+	{
+		tweakPriority(Number(push_amt));
+	}
+	else if ( /^[a-z]+$/.test(push_amt) )
+	{
+		var days = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+		var day = days[push_amt];
+		if (day == undefined)
+		{
+			showError("I thought " + push_amt + " was a day name, but I don't recognize it.");
+			return;
+		}
+
+		var date = new Date( Date.parse(today()) );
+		Logger.log("pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((day + 7 - date.getDay()) % 7));
+		date.setDate( date.getDate() + ((day + 7 - date.getDay()) % 7) );
+		Logger.log("pushItemArbitrary: new date => " + date.toISOString());
+		setDueDate(date);
+	}
+	else
+	{
+		showError("Don't know how to convert " + push_amt + " to a date or date offset.");
+		return;
+	}
+}
 
 
 /*
@@ -798,10 +859,11 @@ function onOpen ()
 			)
 		.addSeparator()
 		.addItem("Jump to Full Edit", "jumpToItem")
+		.addItem("Push Item (1 Day)", "pushItem")
 		.addItem("Mark Completed", "markCompleted")
 		.addSubMenu(ui.createMenu("More Edits")
 				.addItem("Bump Item", "bumpItem")
-				.addItem("Push Item", "pushItem")
+				.addItem("Push Item (Any Amount)", "pushItemArbitrary")
 				.addSeparator()
 				.addItem("Split Open Item", "splitItem")
 				.addItem("Cancel Item", "markCancelled")
