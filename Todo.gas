@@ -400,18 +400,26 @@ function splitItem ()
 
 	var obj = getObject(id);
 	Logger.log("splitItem: object with keys: " + keys(obj).join());
+	// Figure out if this item needs to be closed out.  Obviously we have to do
+	// this _before_ we blank out the completed date for the new copy.
+	// If it already has a completed date, don't close it out.
+	var close_out = obj.completed ? false : true;
 	// We'll use this object (which is just a copy of the values) to create a
 	// new object, with *most* of the same values.
 	delete obj.id;				// new object has to get its own ID
-	delete obj.completed;		// this is probably blank already, but certainly _should_ be
+	delete obj.pri;				// pri is the calculated priority, so don't overwrite
+	delete obj.completed;		// this may be blank already, but certainly _should_ be
 	obj.added = today();		// we're adding it right now
 	var row = newItem(obj);
 	if (row == undefined)
 	{
 		return;
 	}
-	// meanwhile, close out the existing object
-	updateItem({ id: id, completed: today() });
+	// close out the existing object if necessary
+	if (close_out)
+	{
+		updateItem({ id: id, completed: today() });
+	}
 	// finally, let the user edit the new item if they want to
 	row.activate();
 }
@@ -855,6 +863,7 @@ function onOpen ()
 	ui.createMenu("Todo")
 		.addItem("New Item", "newInTray")
 		.addSubMenu(ui.createMenu("More New Stuff")
+				.addItem("Copy Completed Item", "splitItem")
 				.addItem("New Task [old/non-working]", "newTask")
 			)
 		.addSeparator()
