@@ -634,6 +634,17 @@ function newInTray ()
 	newItem({ list: "InTray", added: today(), description: descr });
 }
 
+function newAndEdit ()
+{
+	var descr = prompt("NEW ITEM", "Item to add:");
+	if (descr == undefined)
+	{
+		return;
+	}
+	var row = newItem({ list: "InTray", added: today(), description: descr });
+	row.activate();
+}
+
 function emptyInTray ()
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("InTray");
@@ -663,8 +674,49 @@ function emptyInTray ()
  ********************
  */
 
+function newTaskToday (mark_completed)
+{
+	// Handle defaults, since GAS JS is too old to do it in the signature.
+	if ( mark_completed == undefined )
+	{
+		mark_completed = false;
+	}
+
+	var descr = prompt("NEW TASK", "Task to add:");
+	if (descr == undefined)
+	{
+		return;
+	}
+	var context = prompt("NEW TASK", "Context (required):");
+	if (context == undefined)
+	{
+		return;
+	}
+	var code = prompt("NEW TASK", "Code (optional):");
+	if (code == undefined)
+	{
+		code = '';
+	}
+	var obj = { list: "Task", context: context, added: today(), code: code, description: descr };
+	if (mark_completed)
+	{
+		obj.completed = today();
+	}
+	else
+	{
+		obj.due = today();
+	}
+	newItem(obj);
+}
+
+function newTaskCompleted () { newTaskToday(true) }
+
+
 function newTask ()
 {
+	showError("This function doesn't work any more.");
+	return;
+
 	var taskname = prompt("NEW TASK", "Name of task:");
 	if (taskname == undefined)
 	{
@@ -862,7 +914,10 @@ function onOpen ()
 	var ui = SpreadsheetApp.getUi();
 	ui.createMenu("Todo")
 		.addItem("New Item", "newInTray")
+		.addItem("New Item and Jump to Edit", "newAndEdit")
 		.addSubMenu(ui.createMenu("More New Stuff")
+				.addItem("New Task for Today", "newTaskToday")
+				.addItem("Record Completed Task", "newTaskCompleted")
 				.addItem("Copy Completed Item", "splitItem")
 				.addItem("New Task [old/non-working]", "newTask")
 			)
