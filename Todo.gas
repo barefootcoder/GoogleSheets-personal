@@ -474,8 +474,15 @@ function markCancelled ()
 	{
 		return;
 	}
+	var reason = prompt("CANCEL ITEM", "Reason for cancellation:");
+	if (reason == undefined)
+	{
+		return;
+	}
 
-	updateItem({ id: id, list: 'Cancelled', completed: today() });
+	var obj = getObject(id);
+	var descr = obj.description + ' {' + reason + '}';
+	updateItem({ id: id, list: 'Cancelled', completed: today(), description: descr });
 }
 
 function tweakPriority (amount)
