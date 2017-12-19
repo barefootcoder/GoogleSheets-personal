@@ -6,6 +6,23 @@
  ****************************
  */
 
+	/*	Print a temporary status message to the screen.
+	 *	If the message is "Done", remove the message after 3 seconds.
+	 *	@param	{string}		msg				message to print
+	 */
+function progress (msg)
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	if (msg == "Done")
+	{
+		me.toast(msg, "Status", 3);
+	}
+	else
+	{
+		me.toast(msg, "Status", 30);
+	}
+}
+
 	/*	Print an error message to the screen.  Requires click to proceed.
 	 *	@param	{string}		msg				message to print
 	 */
@@ -13,6 +30,16 @@ function showError (msg)
 {
 	var ui = SpreadsheetApp.getUi();
 	ui.alert("ERROR", msg, ui.ButtonSet.OK);
+}
+
+	/*	Print a confirmation prompt to the screen.  Return `true` or `false`.
+	 *	@param	{string}		msg				message to print
+	 */
+function confirm (msg)
+{
+	var ui = SpreadsheetApp.getUi();
+	var result = ui.alert("CONFIRM TO PROCEED", msg, ui.ButtonSet.YES_NO);
+	return result == ui.Button.YES ? true : false;
 }
 
 	/*	Ask the user for a string and return it.  Return undefined if the user cancels.
@@ -201,6 +228,14 @@ function keys (object)
 		}
 	}
 	return keys;
+}
+
+// Yet another one that it's insane that I have to write myself.  And, once
+// again, I *should* have Math.trunc(), but GAS JS just ... doesn't.
+// cf. https://stackoverflow.com/questions/10149806/truncate-round-whole-number-in-javascript
+function int (number)
+{
+	return number | 0;
 }
 
 function tabHeaders (tab)
@@ -845,6 +880,70 @@ function saveDay ()
 }
 
 
+function saveToHistory ()
+{
+	Logger.log("saveToHistory: firing up");
+	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
+	progress("Finding earliest month");
+	var tabs = diary.getSheets();
+
+	var quarters   = new Object();
+	var month_tabs = new Object();
+	for (var i = 0; i < tabs.length; ++i)
+	{
+		var name = tabs[i].getName();
+		if ( /\d\d\d\d-\d\d-\d\d/.test(name) )
+		{
+			var year  = name.substr(0,4);
+			var month = name.substr(5,2);
+			var quarter = int((month - 1) / 3) + 1;
+			var sheet_name = "CalenDiary History " + year + "-Q" + quarter;
+			if (month_tabs[month] == undefined)
+			{
+				month_tabs[month] = [];
+			}
+			month_tabs[month].push(tabs[i]);
+			if (quarters[sheet_name] == undefined || month < quarters[sheet_name])
+			{
+				quarters[sheet_name] = month;
+			}
+		}
+	}
+	progress("Finding history sheet name");
+	var potentials = keys(quarters);
+	potentials.sort();
+	var history_name = potentials[0];
+	var history_files = DriveApp.getFilesByName(history_name);
+	if (history_files.hasNext())
+	{
+		var history = SpreadsheetApp.open(history_files.next());
+		var tabs_to_save = month_tabs[quarters[history_name]];
+		var tab_names = tabs_to_save.map(function (_) { return _.getName() }).toString();
+		if (confirm("Will save these tabs to " + history_name + ": " + tab_names))
+		{
+			for (var i = 0; i < tabs_to_save.length; ++i)
+			{
+				var day = tabs_to_save[i];
+				var day_name = day.getName();
+				progress("Moving tab: " + day_name);
+				var new_tab = day.copyTo(history);
+				new_tab.setName(day_name);
+				diary.deleteSheet(day);
+			}
+		}
+		else
+		{
+			showError("Bailing out at user request.");
+		}
+	}
+	else
+	{
+		showError("You must create sheet: " + history_name);
+	}
+	progress("Done");
+}
+
+
 /*
  ********************
  *		Projects	*
@@ -937,6 +1036,7 @@ function onOpen ()
 		.addItem("Start a New Day", "newDay")
 		.addSubMenu(ui.createMenu("More Transitions")
 				.addItem("(Re)Save Day to Diary", "saveDay")
+				.addItem("Save CalenDiary's Earliest Month to History", "saveToHistory")
 			)
 		.addSeparator()
 		.addItem("Resort",   "resort")
