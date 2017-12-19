@@ -166,6 +166,17 @@ function getDataSlice (tab, opts)
 }
 
 
+function getDataBlock (tab, start_col, end_col)
+{
+	var start = getColumnOfHeader(tab, start_col);
+	var end   = getColumnOfHeader(tab, end_col  );
+	var header_rows = tab.getFrozenRows();
+	var height = tab.getMaxRows() - header_rows;
+	var width  = end - start + 1;
+	return tab.getRange(header_rows + 1, start, height, width);
+}
+
+
 /*
  ************************
  * general object funcs *
@@ -615,9 +626,15 @@ function newTask ()
 
 function newDay ()
 {
+	Logger.log("newDay: firing up");
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("Today");
 	tab.activate();
+	Logger.log("newDay: activated tab");
+
+	// save any potential changes to "yesterday"
+	// before we switch over to "tomorrow"
+	saveDay();
 
 	var date = me.getRange("TodaysDate");
 	date.setValue( today() );
@@ -636,11 +653,15 @@ function newDay ()
 	schedule = schedule.offset(0, 0, values.length);
 	schedule.setValues(values);
 	tab.getRange(1, 2).setValue(start_time);
+
+	// now that "tomorrow" is "today," save again
+	saveDay();
 }
 
 
 function saveDay ()
 {
+	Logger.log("saveDay: firing up");
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("Today");
 	tab.activate();
@@ -648,16 +669,51 @@ function saveDay ()
 
 	// using hardcoded ID for diary sheet open
 	// less than ideal, but a PITA to do it any other way
+	Logger.log("saveDay: about to open diary");
 	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
-	var day = tab.copyTo(diary);
-	day.setName(date);
+	var day = diary.getSheetByName(date);
+	Logger.log("saveDay: trying to find sheet: " + date);
+	if (day == null)
+	{
+		// fresh copy
+		Logger.log("saveDay: fresh copy");
+		var day = tab.copyTo(diary);
+		Logger.log("saveDay: created new sheet");
+		day.setName(date);
 
-	var start_col   = getColumnOfHeader(tab, "Pri");
-	var header_rows = tab.getFrozenRows();
-	var height = tab.getMaxRows() - header_rows;
-	var width  = tab.getMaxColumns() - start_col + 1;
-	var due_values = tab.getSheetValues(header_rows + 1, start_col, height, width);
-	day.getRange(header_rows + 1, start_col, height, width).setValues(due_values);
+		var due_values = getDataBlock(tab, "#2", "#3").getValues();
+		getDataBlock(day, "#2", "#3").setValues(due_values);
+
+		// tweak column headers
+		var top_row = tab.getSheetValues(1, 1, 1, tab.getMaxColumns())[0];
+		for (var i=0, len=top_row.length; i < len; ++i)
+		{
+			Logger.log("saveDay: at column " + (i + 1) + ", top row is " + top_row[i]);
+			if (top_row[i] == "Todo Today")
+			{
+				Logger.log("saveDay: resetting column header at 1," + (i + 1));
+				day.getRange(1, i + 1).setValue("At Start: " + top_row[i]);
+			}
+			else if (top_row[i] == "Completed Today")
+			{
+				Logger.log("saveDay: resetting column header at 1," + (i + 1));
+				day.getRange(1, i + 1).setValue("At End: " + top_row[i]);
+			}
+		}
+	}
+	else
+	{
+		// recopy start/end hour and schedule data
+		Logger.log("saveDay: recopy left and right panes");
+		day.getRange("TodaysStartHour").setValue(tab.getRange("TodaysStartHour").getValue());
+		day.getRange("TodaysEndHour").setValue(tab.getRange("TodaysEndHour").getValue());
+		var schedule = getDataBlock(tab, "Schedule", "Schedule").getValues();
+		getDataBlock(day, "Schedule", "Schedule").setValues(schedule);
+
+		// copy completed tasks
+		var completed = getDataBlock(tab, "#3", "#END").getValues();
+		getDataBlock(day, "#3", "#END").setValues(completed);
+	}
 }
 
 
