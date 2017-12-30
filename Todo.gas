@@ -56,6 +56,41 @@ function prompt (title, prompt)
 
 
 /*
+ *********************
+ * General Functions *
+ *********************
+ */
+
+// I cannot believe that I don't have this as a built-in method.  Apparently I
+// _should_ have it, but whatever Frankenstein version of JS that GAS uses is
+// flipping me the bird.
+// This implementation taken primarily from:
+// https://stackoverflow.com/questions/208016/how-to-list-the-properties-of-a-javascript-object
+function keys (object)
+{
+	var keys = [];
+	for (var key in object)
+	{
+		// See: https://stackoverflow.com/questions/8312459/iterate-through-object-properties
+		// (God, Javascript is stupid ...)
+		if (object.hasOwnProperty(key))
+		{
+			keys.push(key);
+		}
+	}
+	return keys;
+}
+
+// Yet another one that it's insane that I have to write myself.  And, once
+// again, I *should* have Math.trunc(), but GAS JS just ... doesn't.
+// cf. https://stackoverflow.com/questions/10149806/truncate-round-whole-number-in-javascript
+function int (number)
+{
+	return number | 0;
+}
+
+
+/*
  ********************
  *	 Date Stuff		*
  ********************
@@ -209,34 +244,6 @@ function getDataBlock (tab, start_col, end_col)
  * general object funcs *
  ************************
  */
-
-// I cannot believe that I don't have this as a built-in method.  Apparently I
-// _should_ have it, but whatever Frankenstein version of JS that GAS uses is
-// flipping me the bird.
-// This implementation taken primarily from:
-// https://stackoverflow.com/questions/208016/how-to-list-the-properties-of-a-javascript-object
-function keys (object)
-{
-	var keys = [];
-	for (var key in object)
-	{
-		// See: https://stackoverflow.com/questions/8312459/iterate-through-object-properties
-		// (God, Javascript is stupid ...)
-		if (object.hasOwnProperty(key))
-		{
-			keys.push(key);
-		}
-	}
-	return keys;
-}
-
-// Yet another one that it's insane that I have to write myself.  And, once
-// again, I *should* have Math.trunc(), but GAS JS just ... doesn't.
-// cf. https://stackoverflow.com/questions/10149806/truncate-round-whole-number-in-javascript
-function int (number)
-{
-	return number | 0;
-}
 
 function tabHeaders (tab)
 {
