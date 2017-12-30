@@ -609,8 +609,18 @@ function tweakPriority (amount)
 		}
 		else
 		{
-			showError("Don't know how to push/bump (item has no due date or priority).");
-			return;
+			if (confirm("No priority or due date; shall we push from today's date?"))
+			{
+				var date = new Date( Date.parse(today()) );
+				date.setDate(date.getDate() + amount);
+				cell = item.getCell(1, due_col);
+				dateIntoCell(date, cell);
+			}
+			else
+			{
+				showError("Don't know how to push/bump (item has no due date or priority).");
+				return;
+			}
 		}
 	}
 }
