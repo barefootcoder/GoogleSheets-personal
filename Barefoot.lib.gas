@@ -1,0 +1,318 @@
+/*
+ ****************************
+ * Pass-through Functions   *
+ *   from Underscore:       *
+ * http://underscorejs.org/ *
+ ****************************
+ */
+
+var _ = Underscore.load();
+
+// arrays or objects
+var contains = _.contains;
+var grep     = _.find;			// renamed
+var min      = _.min;
+var max      = _.max;
+var shuffle  = _.shuffle;
+
+// arrays
+var last     = _.last;
+var tail     = _.tail;
+var uniq     = _.uniq;
+var union    = _.union;
+
+// objects
+var keys     = _.keys;
+var values   = _.values;
+var pairs    = _.pairs;
+
+// functions
+var memoize  = _.memoize;
+var once     = _.once;
+var wrap     = _.wrap;
+
+// number
+var random  = _.random;			// (min, max)
+
+
+
+/*
+ *********************
+ * Numeric Functions *
+ *********************
+ */
+
+// Yet another one that it's insane that I have to write myself.  And, once
+// again, I *should* have Math.trunc(), but GAS JS just ... doesn't.
+// cf. https://stackoverflow.com/questions/10149806/truncate-round-whole-number-in-javascript
+function int (number)
+{
+	return number | 0;
+}
+
+
+
+/*
+ ********************
+ *	 Date Stuff		*
+ ********************
+ */
+
+function dateAsString (date)
+{
+	return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
+}
+
+function today ()
+{
+	var today = new Date();
+	// Subtract 6 hours so midnight - 6am will be "yesterday."
+	// See: https://stackoverflow.com/questions/1050720/adding-hours-to-javascript-date-object
+	today.setTime(today.getTime() - 6*60*60*1000);
+	return dateAsString(today);
+}
+
+function dateFromCell (cell)
+{
+	return new Date( Date.parse(cell.getValue()) );
+}
+
+function dateIntoCell (date, cell)
+{
+	debug(3, "dateIntoCell: going to set cell " + cell.getA1Notation() + " to value: "
+			+ dateAsString(date) + " [from " + date.toString() + "]");
+	cell.setValue( dateAsString(date) );
+}
+
+
+
+/*
+ ****************************
+ *	General UI functions	*
+ * (mostly stolen from the  *
+ *  D&D RPG sheets        ) *
+ ****************************
+ */
+
+	/*	Print a temporary status message to the screen.
+	 *	If the message is "Done", remove the message after 3 seconds.
+	 *	@param	{string}		msg				message to print
+	 */
+function progress (msg)
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	if (msg == "Done")
+	{
+		me.toast(msg, "Status", 3);
+	}
+	else
+	{
+		me.toast(msg, "Status", 30);
+	}
+}
+
+	/*	Print an error message to the screen.  Requires click to proceed.
+	 *	@param	{string}		msg				message to print
+	 */
+function showError (msg)
+{
+	var ui = SpreadsheetApp.getUi();
+	ui.alert("ERROR", msg, ui.ButtonSet.OK);
+}
+
+	/*	Print a confirmation prompt to the screen.  Return `true` or `false`.
+	 *	@param	{string}		msg				message to print
+	 */
+function confirm (msg)
+{
+	var ui = SpreadsheetApp.getUi();
+	var result = ui.alert("CONFIRM TO PROCEED", msg, ui.ButtonSet.YES_NO);
+	return result == ui.Button.YES ? true : false;
+}
+
+	/*	Ask the user for a string and return it.  Return undefined if the user cancels.
+	 *	@param	{title}			string			title for the prompt dialog
+	 *	@param	{prompt}		string			prompt to show the user
+	 *	@return	{string}						what the user typed; undefined if they cancelled
+	 */
+function prompt (title, prompt)
+{
+	var ui = SpreadsheetApp.getUi();
+	var result = ui.prompt(title, prompt, ui.ButtonSet.OK_CANCEL);
+	return result.getSelectedButton() == ui.Button.OK ? result.getResponseText() : undefined;
+}
+
+
+
+/*
+ ************************
+ *		Debugging		*
+ ************************
+ */
+
+var DEBUG = 0;
+
+	/*	Set debugging on.
+	 *	@param	{number}		level			new value for DEBUG
+	 *	@return	{number}						previous value of DEBUG
+	 */
+function setDEBUG (level)
+{
+	var oldval = DEBUG;
+	DEBUG = level;
+	return oldval;
+}
+
+	/*	Print a message to the screen, but only if DEBUG is on.
+	 *	@param	{string}		msg				message to print
+	 */
+function debug (level, msg)
+{
+	if (DEBUG >= level)
+	{
+		if (level == 1)
+		{
+			var ui = SpreadsheetApp.getUi();
+			ui.alert("DEBUG", msg, ui.ButtonSet.OK);
+		}
+		Logger.log(msg);
+	}
+}
+
+
+
+/*
+ ********************
+ *	Sheet Utility	*
+ ********************
+ */
+
+	/*	Return the first empty row on the requested sheet.
+	 *	@param	{string}		tab_name		name of the tab to find the first empty row of
+	 *	@param	{number}		column			colum to check for values (default: 1)
+	 *	@return	{Range}							range representing the first empty row
+	 */
+function getFirstEmptyRow (tab_name, column)
+{
+	// Handle defaults, since GAS JS is too old to do it in the signature.
+	if ( column == undefined )
+	{
+		column = 1;
+	}
+
+	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName(tab_name);
+	var first_datarow = tab.getFrozenRows() + 1;
+	var values = getDataSlice(tab, { col: column, as: 'values' });
+	if (values == undefined)
+	{
+		return;
+	}
+
+	var ct = 0;
+	debug(5, "getFirstEmptyRow: checking row " + (ct + first_datarow));
+	while ( values[ct][0] != "" )
+	{
+		debug(5, "getFirstEmptyRow: checking row " + (ct + first_datarow) + " for tab " + tab_name);
+		++ct;
+	}
+	// go from 0-origin to 1-origin
+	// and account for header rows, which getDataColumn() throws away
+	return getDataSlice(tab, { row: ct + 1, after_headers: true, as: 'range' });
+}
+
+
+function getDataSlice (tab, opts)
+{
+	var return_as = opts["as"];
+	if (return_as == undefined)
+	{
+		l.showError("getDataSlice: must specify how to return");
+		return;
+	}
+
+	var start_row, start_col, num_rows, num_cols;
+	if (typeof(opts["row"]) != "undefined")
+	{
+		var header_cols = tab.getFrozenColumns();
+		start_row = opts["row"];
+		start_col = header_cols + 1;
+		num_rows  = 1;
+		num_cols  = tab.getMaxColumns() - header_cols;
+		if (opts["after_headers"])
+		{
+			start_row += tab.getFrozenRows();
+		}
+	}
+	else if (typeof(opts["col"]) != "undefined")
+	{
+		var header_rows = tab.getFrozenRows();
+		start_row = header_rows + 1;
+		start_col = opts["col"];
+		num_rows  = tab.getMaxRows() - header_rows;
+		num_cols  = 1;
+		if (opts["after_headers"])
+		{
+			start_col += tab.getFrozenColumns();
+		}
+	}
+	else
+	{
+		l.showError("getDataSlice: must specify either row or column");
+		return;
+	}
+
+	var range = tab.getRange(start_row, start_col, num_rows, num_cols);
+	if ( typeof range == 'undefined' )
+	{
+		l.showError("Cannot find any values to slice: " + start_row + ", " + start_col);
+		return;
+	}
+
+	if (return_as == "range")
+	{
+		return range;
+	}
+	else if (return_as == "values")
+	{
+		return range.getValues();
+	}
+	else
+	{
+		l.showError("getDataRow: illegal return type: " + return_as);
+		return;
+	}
+}
+
+
+function getDataBlock (tab, start_col, end_col)
+{
+	var start = getColumnOfHeader(tab, start_col);
+	var end   = getColumnOfHeader(tab, end_col  );
+	var header_rows = tab.getFrozenRows();
+	var height = tab.getMaxRows() - header_rows;
+	var width  = end - start + 1;
+	return tab.getRange(header_rows + 1, start, height, width);
+}
+
+
+function tabHeaders (tab)
+{
+	var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
+	return headers[0];
+}
+
+function getColumnOfHeader (tab, header)
+{
+	var headers = tabHeaders(tab);
+	for (var i=0, len=headers.length; i < len; ++i)
+	{
+		debug(4, "getColumnOfHeader: checking " + headers[i] + " against " + header);
+		if (headers[i] == header)
+		{
+			return i + 1;							// go from 0-origin to 1-origin
+		}
+	}
+	return;											// undefined if not found
+}

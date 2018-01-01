@@ -1,269 +1,8 @@
 /*
- ****************************
- *	General UI functions	*
- * (mostly stolen from the  *
- *  D&D RPG sheets        ) *
- ****************************
- */
-
-	/*	Print a temporary status message to the screen.
-	 *	If the message is "Done", remove the message after 3 seconds.
-	 *	@param	{string}		msg				message to print
-	 */
-function progress (msg)
-{
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	if (msg == "Done")
-	{
-		me.toast(msg, "Status", 3);
-	}
-	else
-	{
-		me.toast(msg, "Status", 30);
-	}
-}
-
-	/*	Print an error message to the screen.  Requires click to proceed.
-	 *	@param	{string}		msg				message to print
-	 */
-function showError (msg)
-{
-	var ui = SpreadsheetApp.getUi();
-	ui.alert("ERROR", msg, ui.ButtonSet.OK);
-}
-
-	/*	Print a confirmation prompt to the screen.  Return `true` or `false`.
-	 *	@param	{string}		msg				message to print
-	 */
-function confirm (msg)
-{
-	var ui = SpreadsheetApp.getUi();
-	var result = ui.alert("CONFIRM TO PROCEED", msg, ui.ButtonSet.YES_NO);
-	return result == ui.Button.YES ? true : false;
-}
-
-	/*	Ask the user for a string and return it.  Return undefined if the user cancels.
-	 *	@param	{title}			string			title for the prompt dialog
-	 *	@param	{prompt}		string			prompt to show the user
-	 *	@return	{string}						what the user typed; undefined if they cancelled
-	 */
-function prompt (title, prompt)
-{
-	var ui = SpreadsheetApp.getUi();
-	var result = ui.prompt(title, prompt, ui.ButtonSet.OK_CANCEL);
-	return result.getSelectedButton() == ui.Button.OK ? result.getResponseText() : undefined;
-}
-
-
-/*
- *********************
- * General Functions *
- *********************
- */
-
-// I cannot believe that I don't have this as a built-in method.  Apparently I
-// _should_ have it, but whatever Frankenstein version of JS that GAS uses is
-// flipping me the bird.
-// This implementation taken primarily from:
-// https://stackoverflow.com/questions/208016/how-to-list-the-properties-of-a-javascript-object
-function keys (object)
-{
-	var keys = [];
-	for (var key in object)
-	{
-		// See: https://stackoverflow.com/questions/8312459/iterate-through-object-properties
-		// (God, Javascript is stupid ...)
-		if (object.hasOwnProperty(key))
-		{
-			keys.push(key);
-		}
-	}
-	return keys;
-}
-
-// Yet another one that it's insane that I have to write myself.  And, once
-// again, I *should* have Math.trunc(), but GAS JS just ... doesn't.
-// cf. https://stackoverflow.com/questions/10149806/truncate-round-whole-number-in-javascript
-function int (number)
-{
-	return number | 0;
-}
-
-
-/*
- ********************
- *	 Date Stuff		*
- ********************
- */
-
-function dateAsString (date)
-{
-	return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
-}
-
-function today ()
-{
-	var today = new Date();
-	// Subtract 6 hours so midnight - 6am will be "yesterday."
-	// See: https://stackoverflow.com/questions/1050720/adding-hours-to-javascript-date-object
-	today.setTime(today.getTime() - 6*60*60*1000);
-	return dateAsString(today);
-}
-
-function dateFromCell (cell)
-{
-	return new Date( Date.parse(cell.getValue()) );
-}
-
-function dateIntoCell (date, cell)
-{
-	Logger.log("dateIntoCell: going to set cell " + cell.getA1Notation() + " to value: "
-			+ dateAsString(date) + "[from " + date.toString() + "]");
-	cell.setValue( dateAsString(date) );
-}
-
-
-/*
- ********************
- *	Sheet Utility	*
- ********************
- */
-
-	/*	Return the first empty row on the requested sheet.
-	 *	@param	{string}		tab_name		name of the tab to find the first empty row of
-	 *	@param	{number}		column			colum to check for values (default: 1)
-	 *	@return	{Range}							range representing the first empty row
-	 */
-function getFirstEmptyRow (tab_name, column)
-{
-	// Handle defaults, since GAS JS is too old to do it in the signature.
-	if ( column == undefined )
-	{
-		column = 1;
-	}
-
-	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getSheetByName(tab_name);
-	var first_datarow = tab.getFrozenRows() + 1;
-	var values = getDataSlice(tab, { col: column, as: 'values' });
-	if (values == undefined)
-	{
-		return;
-	}
-
-	var ct = 0;
-	//Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow));
-	while ( values[ct][0] != "" )
-	{
-		//Logger.log("getFirstEmptyRow: checking row " + (ct + first_datarow) + " for tab " + tab_name);
-		++ct;
-	}
-	// go from 0-origin to 1-origin
-	// and account for header rows, which getDataColumn() throws away
-	return getDataSlice(tab, { row: ct + 1, after_headers: true, as: 'range' });
-}
-
-
-function getDataSlice (tab, opts)
-{
-	var return_as = opts["as"];
-	if (return_as == undefined)
-	{
-		showError("getDataSlice: must specify how to return");
-		return;
-	}
-
-	var start_row, start_col, num_rows, num_cols;
-	if (typeof(opts["row"]) != "undefined")
-	{
-		var header_cols = tab.getFrozenColumns();
-		start_row = opts["row"];
-		start_col = header_cols + 1;
-		num_rows  = 1;
-		num_cols  = tab.getMaxColumns() - header_cols;
-		if (opts["after_headers"])
-		{
-			start_row += tab.getFrozenRows();
-		}
-	}
-	else if (typeof(opts["col"]) != "undefined")
-	{
-		var header_rows = tab.getFrozenRows();
-		start_row = header_rows + 1;
-		start_col = opts["col"];
-		num_rows  = tab.getMaxRows() - header_rows;
-		num_cols  = 1;
-		if (opts["after_headers"])
-		{
-			start_col += tab.getFrozenColumns();
-		}
-	}
-	else
-	{
-		showError("getDataSlice: must specify either row or column");
-		return;
-	}
-
-	var range = tab.getRange(start_row, start_col, num_rows, num_cols);
-	if ( typeof range == 'undefined' )
-	{
-		showError("Cannot find any values to slice: " + start_row + ", " + start_col);
-		return;
-	}
-
-	if (return_as == "range")
-	{
-		return range;
-	}
-	else if (return_as == "values")
-	{
-		return range.getValues();
-	}
-	else
-	{
-		showError("getDataRow: illegal return type: " + return_as);
-		return;
-	}
-}
-
-
-function getDataBlock (tab, start_col, end_col)
-{
-	var start = getColumnOfHeader(tab, start_col);
-	var end   = getColumnOfHeader(tab, end_col  );
-	var header_rows = tab.getFrozenRows();
-	var height = tab.getMaxRows() - header_rows;
-	var width  = end - start + 1;
-	return tab.getRange(header_rows + 1, start, height, width);
-}
-
-
-/*
  ************************
  * general object funcs *
  ************************
  */
-
-function tabHeaders (tab)
-{
-	var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
-	return headers[0];
-}
-
-function getColumnOfHeader (tab, header)
-{
-	var headers = tabHeaders(tab);
-	for (var i=0, len=headers.length; i < len; ++i)
-	{
-		Logger.log("getColumnOfHeader: checking " + headers[i] + " against " + header);
-		if (headers[i] == header)
-		{
-			return i + 1;							// go from 0-origin to 1-origin
-		}
-	}
-	return;											// undefined if not found
-}
 
 function getID (range)
 {
@@ -272,14 +11,14 @@ function getID (range)
 	var last_header_row = tab.getFrozenRows();
 	if (row <= last_header_row)
 	{
-		showError("Get out of the header!");
+		l.showError("Get out of the header!");
 		return;
 	}
 
-	var id_col = getColumnOfHeader(tab, "ID");
+	var id_col = l.getColumnOfHeader(tab, "ID");
 	if (id_col == undefined)
 	{
-		showError("You're not on a sheet with an ID column.");
+		l.showError("You're not on a sheet with an ID column.");
 		return;
 	}
 	var vals = tab.getSheetValues(row, id_col, 1, 1);
@@ -293,14 +32,14 @@ function getRowForObject (id)
 	var tab = me.getSheetByName("RawData");
 	// cheating a bit by assuming ID is always in column 1 (and no frozen cols)
 	// but this is also a performance enhancement, so I'll allow it
-	var ids = getDataSlice(tab, { col: 1, as: "values" });
+	var ids = l.getDataSlice(tab, { col: 1, as: "values" });
 	for (var i=0, len=ids.length; i < len; ++i)
 	{
 		if (ids[i][0] == id)
 		{
 			// go from 0-origin to 1-origin
 			// and account for header rows, which getDataColumn() throws away
-			return getDataSlice(tab, { row: i + 1, after_headers: true, as: "range" });
+			return l.getDataSlice(tab, { row: i + 1, after_headers: true, as: "range" });
 		}
 	}
 	return;											// undefined if not found
@@ -330,7 +69,7 @@ function dataHeaderColumn (column)
 	if (data_headers == undefined)
 	{
 		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
-		data_header_row = tabHeaders(tab);
+		data_header_row = l.tabHeaders(tab);
 		data_headers = {};
 		for (var i=0, len=data_header_row.length; i < len; ++i)
 		{
@@ -350,7 +89,7 @@ function dataHeaderColumn (column)
 	}
 	else
 	{
-		showError("No such column in data: " + column);
+		l.showError("No such column in data: " + column);
 		return;
 	}
 }
@@ -359,7 +98,7 @@ function dataSet (row, column, value)
 {
 	if (!typeof(row) == "Range")
 	{
-		showError("dataSet: first arg must be a Range");
+		l.showError("dataSet: first arg must be a Range");
 		return;
 	}
 
@@ -378,20 +117,20 @@ function dataSet (row, column, value)
 function newItem (object)
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
-	var headers = tabHeaders(tab);
-	var new_row = getFirstEmptyRow("RawData", 10);
+	var headers = l.tabHeaders(tab);
+	var new_row = l.getFirstEmptyRow("RawData", 10);
 	if (new_row == undefined)
 	{
-		showError("can't find an empty row for a new item");
+		l.showError("can't find an empty row for a new item");
 		return;
 	}
 	if (!object.hasOwnProperty("description"))
 	{
-		showError("can't make an item without a description");
+		l.showError("can't make an item without a description");
 		return;
 	}
 
-	keys(object).forEach(function (key)
+	l.keys(object).forEach(function (key)
 	{
 		Logger.log("newItem: going to set " + key + " to " + object[key]);
 		if (dataSet(new_row, key, object[key]) == undefined)
@@ -407,14 +146,14 @@ function updateItem (object)
 {
 	if (!object.hasOwnProperty("id"))
 	{
-		showError("Can't update item without ID.");
+		l.showError("Can't update item without ID.");
 		return;
 	}
 
 	var row = getRowForObject(object.id);
 	if (row == undefined)
 	{
-		showError("Illegal ID " + id + " (which should be impossible).");
+		l.showError("Illegal ID " + id + " (which should be impossible).");
 		return;
 	}
 
@@ -441,7 +180,7 @@ function splitItem ()
 	}
 
 	var obj = getObject(id);
-	Logger.log("splitItem: object with keys: " + keys(obj).join());
+	Logger.log("splitItem: object with keys: " + l.keys(obj).join());
 	// Figure out if this item needs to be closed out.  Obviously we have to do
 	// this _before_ we blank out the completed date for the new copy.
 	// If it already has a completed date, don't close it out.
@@ -451,7 +190,7 @@ function splitItem ()
 	delete obj.id;				// new object has to get its own ID
 	delete obj.pri;				// pri is the calculated priority, so don't overwrite
 	delete obj.completed;		// this may be blank already, but certainly _should_ be
-	obj.added = today();		// we're adding it right now
+	obj.added = l.today();		// we're adding it right now
 	var row = newItem(obj);
 	if (row == undefined)
 	{
@@ -460,7 +199,7 @@ function splitItem ()
 	// close out the existing object if necessary
 	if (close_out)
 	{
-		updateItem({ id: id, completed: today() });
+		updateItem({ id: id, completed: l.today() });
 	}
 	// finally, let the user edit the new item if they want to
 	row.activate();
@@ -490,7 +229,7 @@ function getIDofCurrentRow ()
 	var id = getID(pos);
 	if (id == undefined)
 	{
-		showError("This row does not appear to be an item.");
+		l.showError("This row does not appear to be an item.");
 		return;
 	}
 	return id;
@@ -514,7 +253,7 @@ function markCompleted ()
 		return;
 	}
 
-	updateItem({ id: id, completed: today() });
+	updateItem({ id: id, completed: l.today() });
 }
 
 function markCancelled ()
@@ -524,7 +263,7 @@ function markCancelled ()
 	{
 		return;
 	}
-	var reason = prompt("CANCEL ITEM", "Reason for cancellation:");
+	var reason = l.prompt("CANCEL ITEM", "Reason for cancellation:");
 	if (reason == undefined)
 	{
 		return;
@@ -532,7 +271,7 @@ function markCancelled ()
 
 	var obj = getObject(id);
 	var descr = obj.description + ' {' + reason + '}';
-	updateItem({ id: id, list: 'Cancelled', completed: today(), description: descr });
+	updateItem({ id: id, list: 'Cancelled', completed: l.today(), description: descr });
 }
 
 function setDueDate (new_val)
@@ -547,7 +286,7 @@ function setDueDate (new_val)
 	var cell = item.getCell(1, due_col);
 	if ( typeof(new_val) == "Date" )
 	{
-		dateIntoCell(new_val, cell);
+		l.dateIntoCell(new_val, cell);
 	}
 	else
 	{
@@ -568,10 +307,10 @@ function tweakPriority (amount)
 	var value = cell.getValue();
 	if (value != "")
 	{
-		var date = dateFromCell(cell);
+		var date = l.dateFromCell(cell);
 		Logger.log("tweakPriority: got date from cell: " + date.toString());
 		date.setDate(date.getDate() + amount);
-		dateIntoCell(date, cell);
+		l.dateIntoCell(date, cell);
 	}
 	else
 	{
@@ -599,7 +338,7 @@ function tweakPriority (amount)
 				number += 1;
 				if (letter < 1 || letter > 3)
 				{
-					showError("trying to adjust priority out-of-bounds: " + letter + '/' + number);
+					l.showError("trying to adjust priority out-of-bounds: " + letter + '/' + number);
 					return;
 				}
 			}
@@ -609,16 +348,16 @@ function tweakPriority (amount)
 		}
 		else
 		{
-			if (confirm("No priority or due date; shall we push from today's date?"))
+			if (l.confirm("No priority or due date; shall we push from today's date?"))
 			{
-				var date = new Date( Date.parse(today()) );
+				var date = new Date( Date.parse(l.today()) );
 				date.setDate(date.getDate() + amount);
 				cell = item.getCell(1, due_col);
-				dateIntoCell(date, cell);
+				l.dateIntoCell(date, cell);
 			}
 			else
 			{
-				showError("Don't know how to push/bump (item has no due date or priority).");
+				l.showError("Don't know how to push/bump (item has no due date or priority).");
 				return;
 			}
 		}
@@ -630,7 +369,7 @@ function pushItem () { tweakPriority(1)  }
 
 function pushItemArbitrary ()
 {
-	var push_amt = prompt("PUSH ITEM", "Push by (days) or push to (date):");
+	var push_amt = l.prompt("PUSH ITEM", "Push by (days) or push to (date):");
 	if (push_amt == undefined)
 	{
 		return;
@@ -652,11 +391,11 @@ function pushItemArbitrary ()
 		var day = days[push_amt];
 		if (day == undefined)
 		{
-			showError("I thought " + push_amt + " was a day name, but I don't recognize it.");
+			l.showError("I thought " + push_amt + " was a day name, but I don't recognize it.");
 			return;
 		}
 
-		var date = new Date( Date.parse(today()) );
+		var date = new Date( Date.parse(l.today()) );
 		Logger.log("pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((day + 7 - date.getDay()) % 7));
 		date.setDate( date.getDate() + ((day + 7 - date.getDay()) % 7) );
 		Logger.log("pushItemArbitrary: new date => " + date.toISOString());
@@ -664,7 +403,7 @@ function pushItemArbitrary ()
 	}
 	else
 	{
-		showError("Don't know how to convert " + push_amt + " to a date or date offset.");
+		l.showError("Don't know how to convert " + push_amt + " to a date or date offset.");
 		return;
 	}
 }
@@ -678,22 +417,22 @@ function pushItemArbitrary ()
 
 function newInTray ()
 {
-	var descr = prompt("NEW ITEM", "Item to add to in tray:");
+	var descr = l.prompt("NEW ITEM", "Item to add to in tray:");
 	if (descr == undefined)
 	{
 		return;
 	}
-	newItem({ list: "InTray", added: today(), description: descr });
+	newItem({ list: "InTray", added: l.today(), description: descr });
 }
 
 function newAndEdit ()
 {
-	var descr = prompt("NEW ITEM", "Item to add:");
+	var descr = l.prompt("NEW ITEM", "Item to add:");
 	if (descr == undefined)
 	{
 		return;
 	}
-	var row = newItem({ list: "InTray", added: today(), description: descr });
+	var row = newItem({ list: "InTray", added: l.today(), description: descr });
 	row.activate();
 }
 
@@ -701,17 +440,17 @@ function emptyInTray ()
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("InTray");
 	var first_row = tab.getFrozenRows() + 1;
-	var last_row = getFirstEmptyRow("InTray", 11).getRow() - 1;
+	var last_row = l.getFirstEmptyRow("InTray", 11).getRow() - 1;
 	if (first_row > last_row)
 	{
-		showError("InTray is already empty!");
+		l.showError("InTray is already empty!");
 		return;
 	}
 
 	Logger.log("emptyInTray: going from row " + last_row + " to row " + first_row);
 	for (var i=last_row; i >= first_row; --i)
 	{
-		var row = getDataSlice(tab, { row: i, as: 'range' });
+		var row = l.getDataSlice(tab, { row: i, as: 'range' });
 		var new_list = row.getValue();				// value of the first cell in the row
 		var id = getID(row);
 		updateItem({ id: id, list: new_list });
@@ -734,29 +473,29 @@ function newTaskToday (mark_completed)
 		mark_completed = false;
 	}
 
-	var descr = prompt("NEW TASK", "Task to add:");
+	var descr = l.prompt("NEW TASK", "Task to add:");
 	if (descr == undefined)
 	{
 		return;
 	}
-	var context = prompt("NEW TASK", "Context (required):");
+	var context = l.prompt("NEW TASK", "Context (required):");
 	if (context == undefined)
 	{
 		return;
 	}
-	var code = prompt("NEW TASK", "Code (optional):");
+	var code = l.prompt("NEW TASK", "Code (optional):");
 	if (code == undefined)
 	{
 		code = '';
 	}
-	var obj = { list: "Task", context: context, added: today(), code: code, description: descr };
+	var obj = { list: "Task", context: context, added: l.today(), code: code, description: descr };
 	if (mark_completed)
 	{
-		obj.completed = today();
+		obj.completed = l.today();
 	}
 	else
 	{
-		obj.due = today();
+		obj.due = l.today();
 	}
 	newItem(obj);
 }
@@ -766,15 +505,15 @@ function newTaskCompleted () { newTaskToday(true) }
 
 function newTask ()
 {
-	showError("This function doesn't work any more.");
+	l.showError("This function doesn't work any more.");
 	return;
 
-	var taskname = prompt("NEW TASK", "Name of task:");
+	var taskname = l.prompt("NEW TASK", "Name of task:");
 	if (taskname == undefined)
 	{
 		return;
 	}
-	var priority = prompt("NEW TASK", "Priority for new task:");
+	var priority = l.prompt("NEW TASK", "Priority for new task:");
 	if (priority == undefined)
 	{
 		return;
@@ -817,15 +556,15 @@ function newDay ()
 	saveDay();
 
 	var date = me.getRange("TodaysDate");
-	date.setValue( today() );
+	date.setValue( l.today() );
 
 	Logger.log("newDay: going to pull template tab");
 	var templ = me.getSheetByName("DayTemplates");
 	Logger.log("newDay: going to find 'Today' header");
-	var col = getColumnOfHeader(templ, "Today");
+	var col = l.getColumnOfHeader(templ, "Today");
 	Logger.log("newDay: pulling new schedule");
-	var values = getDataSlice(templ, { col: col, as: 'values' });
-	var schedule = getDataSlice(tab, { col: getColumnOfHeader(tab, "Schedule"), as: 'range' });
+	var values = l.getDataSlice(templ, { col: col, as: 'values' });
+	var schedule = l.getDataSlice(tab, { col: l.getColumnOfHeader(tab, "Schedule"), as: 'range' });
 	Logger.log("newDay: finding old schedule");
 	Logger.log("newDay: going to get value at " + templ.getRange(2, 2).getA1Notation());
 	var start_time = templ.getRange(2, 2).getValue();
@@ -861,8 +600,8 @@ function saveDay ()
 		Logger.log("saveDay: created new sheet");
 		day.setName(date);
 
-		var due_values = getDataBlock(tab, "#2", "#3").getValues();
-		getDataBlock(day, "#2", "#3").setValues(due_values);
+		var due_values = l.getDataBlock(tab, "#2", "#3").getValues();
+		l.getDataBlock(day, "#2", "#3").setValues(due_values);
 
 		// tweak column headers
 		var top_row = tab.getSheetValues(1, 1, 1, tab.getMaxColumns())[0];
@@ -887,12 +626,12 @@ function saveDay ()
 		Logger.log("saveDay: recopy left and right panes");
 		day.getRange("TodaysStartHour").setValue(tab.getRange("TodaysStartHour").getValue());
 		day.getRange("TodaysEndHour").setValue(tab.getRange("TodaysEndHour").getValue());
-		var schedule = getDataBlock(tab, "Schedule", "Schedule").getValues();
-		getDataBlock(day, "Schedule", "Schedule").setValues(schedule);
+		var schedule = l.getDataBlock(tab, "Schedule", "Schedule").getValues();
+		l.getDataBlock(day, "Schedule", "Schedule").setValues(schedule);
 
 		// copy completed tasks
-		var completed = getDataBlock(tab, "#3", "#END").getValues();
-		getDataBlock(day, "#3", "#END").setValues(completed);
+		var completed = l.getDataBlock(tab, "#3", "#END").getValues();
+		l.getDataBlock(day, "#3", "#END").setValues(completed);
 	}
 }
 
@@ -901,7 +640,7 @@ function saveToHistory ()
 {
 	Logger.log("saveToHistory: firing up");
 	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
-	progress("Finding earliest month");
+	l.progress("Finding earliest month");
 	var tabs = diary.getSheets();
 
 	var quarters   = new Object();
@@ -913,7 +652,7 @@ function saveToHistory ()
 		{
 			var year  = name.substr(0,4);
 			var month = name.substr(5,2);
-			var quarter = int((month - 1) / 3) + 1;
+			var quarter = l.int((month - 1) / 3) + 1;
 			var sheet_name = "CalenDiary History " + year + "-Q" + quarter;
 			if (month_tabs[month] == undefined)
 			{
@@ -926,8 +665,8 @@ function saveToHistory ()
 			}
 		}
 	}
-	progress("Finding history sheet name");
-	var potentials = keys(quarters);
+	l.progress("Finding history sheet name");
+	var potentials = l.keys(quarters);
 	potentials.sort();
 	var history_name = potentials[0];
 	var history_files = DriveApp.getFilesByName(history_name);
@@ -936,13 +675,13 @@ function saveToHistory ()
 		var history = SpreadsheetApp.open(history_files.next());
 		var tabs_to_save = month_tabs[quarters[history_name]];
 		var tab_names = tabs_to_save.map(function (_) { return _.getName() }).toString();
-		if (confirm("Will save these tabs to " + history_name + ": " + tab_names))
+		if (l.confirm("Will save these tabs to " + history_name + ": " + tab_names))
 		{
 			for (var i = 0; i < tabs_to_save.length; ++i)
 			{
 				var day = tabs_to_save[i];
 				var day_name = day.getName();
-				progress("Moving tab: " + day_name);
+				l.progress("Moving tab: " + day_name);
 				var new_tab = day.copyTo(history);
 				new_tab.setName(day_name);
 				diary.deleteSheet(day);
@@ -950,14 +689,14 @@ function saveToHistory ()
 		}
 		else
 		{
-			showError("Bailing out at user request.");
+			l.showError("Bailing out at user request.");
 		}
 	}
 	else
 	{
-		showError("You must create sheet: " + history_name);
+		l.showError("You must create sheet: " + history_name);
 	}
-	progress("Done");
+	l.progress("Done");
 }
 
 
@@ -1001,7 +740,6 @@ function resort ()
 
 function jumpToBottom ()
 {
-	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getActiveSheet();
 	var tabname = tab.getName();
@@ -1009,11 +747,16 @@ function jumpToBottom ()
 	var row;
 	if (tabname == "RawData")
 	{
-		row = getFirstEmptyRow(tabname, 10);
+		row = l.getFirstEmptyRow(tabname, 10);
 	}
 	else
 	{
-		row = getFirstEmptyRow(tabname);
+		row = l.getFirstEmptyRow(tabname);
+	}
+	if (row == undefined)
+	{
+		l.showError("No blank rows!");
+		return;
 	}
 	row.activate();
 }
