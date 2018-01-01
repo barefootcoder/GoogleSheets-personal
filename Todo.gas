@@ -22,7 +22,7 @@ function getID (range)
 		return;
 	}
 	var vals = tab.getSheetValues(row, id_col, 1, 1);
-	Logger.log("getID: returning ID " + vals[0][0]);
+	l.debug(4, "getID: returning ID " + vals[0][0]);
 	return vals[0][0];
 }
 
@@ -51,7 +51,7 @@ function getObject (id)
 	var obj = {};
 	for (var i=0, len=values.length; i < len; ++i)
 	{
-		Logger.log("getObject: calling dataHeaderColumn(" + (i + 1) + ")");
+		l.debug(4, "getObject: calling dataHeaderColumn(" + (i + 1) + ")");
 		var header = dataHeaderColumn(i + 1);
 		if (header == undefined)
 		{
@@ -132,7 +132,7 @@ function newItem (object)
 
 	l.keys(object).forEach(function (key)
 	{
-		Logger.log("newItem: going to set " + key + " to " + object[key]);
+		l.debug(2, "newItem: going to set " + key + " to " + object[key]);
 		if (dataSet(new_row, key, object[key]) == undefined)
 		{
 			return;
@@ -180,7 +180,7 @@ function splitItem ()
 	}
 
 	var obj = getObject(id);
-	Logger.log("splitItem: object with keys: " + l.keys(obj).join());
+	l.debug(2, "splitItem: object with keys: " + l.keys(obj).join());
 	// Figure out if this item needs to be closed out.  Obviously we have to do
 	// this _before_ we blank out the completed date for the new copy.
 	// If it already has a completed date, don't close it out.
@@ -308,7 +308,7 @@ function tweakPriority (amount)
 	if (value != "")
 	{
 		var date = l.dateFromCell(cell);
-		Logger.log("tweakPriority: got date from cell: " + date.toString());
+		l.debug(3, "tweakPriority: got date from cell: " + date.toString());
 		date.setDate(date.getDate() + amount);
 		l.dateIntoCell(date, cell);
 	}
@@ -343,7 +343,7 @@ function tweakPriority (amount)
 				}
 			}
 			var new_pri = String.fromCharCode(64 + letter) + number;
-			Logger.log("tweakPriority: setting (hopefully) to new priority: " + new_pri);
+			l.debug(3, "tweakPriority: setting (hopefully) to new priority: " + new_pri);
 			cell.setValue(new_pri);
 		}
 		else
@@ -396,9 +396,9 @@ function pushItemArbitrary ()
 		}
 
 		var date = new Date( Date.parse(l.today()) );
-		Logger.log("pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((day + 7 - date.getDay()) % 7));
+		l.debug(3, "pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((day + 7 - date.getDay()) % 7));
 		date.setDate( date.getDate() + ((day + 7 - date.getDay()) % 7) );
-		Logger.log("pushItemArbitrary: new date => " + date.toISOString());
+		l.debug(3, "pushItemArbitrary: new date => " + date.toISOString());
 		setDueDate(date);
 	}
 	else
@@ -447,7 +447,7 @@ function emptyInTray ()
 		return;
 	}
 
-	Logger.log("emptyInTray: going from row " + last_row + " to row " + first_row);
+	l.debug(2, "emptyInTray: going from row " + last_row + " to row " + first_row);
 	for (var i=last_row; i >= first_row; --i)
 	{
 		var row = l.getDataSlice(tab, { row: i, as: 'range' });
@@ -525,7 +525,7 @@ function newTask ()
 	{
 		if (data[i][0] == "")
 		{
-			Logger.log("newTask: found blank row " + row);
+			l.debug(2, "newTask: found blank row " + row);
 			tab.getRange(i + 1, 1).setValues([priority, taskname]);
 			resort();
 			return;
@@ -545,11 +545,11 @@ function newTask ()
 
 function newDay ()
 {
-	Logger.log("newDay: firing up");
+	l.debug(5, "newDay: firing up");
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("Today");
 	tab.activate();
-	Logger.log("newDay: activated tab");
+	l.debug(5, "newDay: activated tab");
 
 	// save any potential changes to "yesterday"
 	// before we switch over to "tomorrow"
@@ -558,15 +558,15 @@ function newDay ()
 	var date = me.getRange("TodaysDate");
 	date.setValue( l.today() );
 
-	Logger.log("newDay: going to pull template tab");
+	l.debug(5, "newDay: going to pull template tab");
 	var templ = me.getSheetByName("DayTemplates");
-	Logger.log("newDay: going to find 'Today' header");
+	l.debug(5, "newDay: going to find 'Today' header");
 	var col = l.getColumnOfHeader(templ, "Today");
-	Logger.log("newDay: pulling new schedule");
+	l.debug(5, "newDay: pulling new schedule");
 	var values = l.getDataSlice(templ, { col: col, as: 'values' });
 	var schedule = l.getDataSlice(tab, { col: l.getColumnOfHeader(tab, "Schedule"), as: 'range' });
-	Logger.log("newDay: finding old schedule");
-	Logger.log("newDay: going to get value at " + templ.getRange(2, 2).getA1Notation());
+	l.debug(5, "newDay: finding old schedule");
+	l.debug(3, "newDay: going to get value at " + templ.getRange(2, 2).getA1Notation());
 	var start_time = templ.getRange(2, 2).getValue();
 	// cut schedule down to however many values we got back from the template
 	schedule = schedule.offset(0, 0, values.length);
@@ -580,7 +580,7 @@ function newDay ()
 
 function saveDay ()
 {
-	Logger.log("saveDay: firing up");
+	l.debug(5, "saveDay: firing up");
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("Today");
 	tab.activate();
@@ -588,16 +588,16 @@ function saveDay ()
 
 	// using hardcoded ID for diary sheet open
 	// less than ideal, but a PITA to do it any other way
-	Logger.log("saveDay: about to open diary");
+	l.debug(5, "saveDay: about to open diary");
 	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
 	var day = diary.getSheetByName(date);
-	Logger.log("saveDay: trying to find sheet: " + date);
+	l.debug(2, "saveDay: trying to find sheet: " + date);
 	if (day == null)
 	{
 		// fresh copy
-		Logger.log("saveDay: fresh copy");
+		l.debug(5, "saveDay: fresh copy");
 		var day = tab.copyTo(diary);
-		Logger.log("saveDay: created new sheet");
+		l.debug(5, "saveDay: created new sheet");
 		day.setName(date);
 
 		var due_values = l.getDataBlock(tab, "#2", "#3").getValues();
@@ -607,15 +607,15 @@ function saveDay ()
 		var top_row = tab.getSheetValues(1, 1, 1, tab.getMaxColumns())[0];
 		for (var i=0, len=top_row.length; i < len; ++i)
 		{
-			Logger.log("saveDay: at column " + (i + 1) + ", top row is " + top_row[i]);
+			l.debug(4, "saveDay: at column " + (i + 1) + ", top row is " + top_row[i]);
 			if (top_row[i] == "Todo Today")
 			{
-				Logger.log("saveDay: resetting column header at 1," + (i + 1));
+				l.debug(4, "saveDay: resetting column header at 1," + (i + 1));
 				day.getRange(1, i + 1).setValue("At Start: " + top_row[i]);
 			}
 			else if (top_row[i] == "Completed Today")
 			{
-				Logger.log("saveDay: resetting column header at 1," + (i + 1));
+				l.debug(4, "saveDay: resetting column header at 1," + (i + 1));
 				day.getRange(1, i + 1).setValue("At End: " + top_row[i]);
 			}
 		}
@@ -623,7 +623,7 @@ function saveDay ()
 	else
 	{
 		// recopy start/end hour and schedule data
-		Logger.log("saveDay: recopy left and right panes");
+		l.debug(5, "saveDay: recopy left and right panes");
 		day.getRange("TodaysStartHour").setValue(tab.getRange("TodaysStartHour").getValue());
 		day.getRange("TodaysEndHour").setValue(tab.getRange("TodaysEndHour").getValue());
 		var schedule = l.getDataBlock(tab, "Schedule", "Schedule").getValues();
@@ -638,7 +638,7 @@ function saveDay ()
 
 function saveToHistory ()
 {
-	Logger.log("saveToHistory: firing up");
+	l.debug(5, "saveToHistory: firing up");
 	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
 	l.progress("Finding earliest month");
 	var tabs = diary.getSheets();
@@ -723,14 +723,14 @@ function resort ()
 		if (data[i][0] == "X")
 		{
 			var row = i + 1;
-			Logger.log("resort: going to delete row " + row);
+			l.debug(4, "resort: going to delete row " + row);
 			to_delete.push(row);
 		}
 	}
 	for (var i = 0; i < to_delete.length; ++i)
 	{
 		var row = to_delete[i];
-		Logger.log("resort: about to delete row " + row);
+		l.debug(4, "resort: about to delete row " + row);
 		tab.deleteRow(row);
 	}
 	tab.sort(1);
