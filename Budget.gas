@@ -42,6 +42,30 @@ function splitLine ()
 }
 
 
+function jumpToBottom ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var tabname = tab.getName();
+
+	var row;
+	if (tabname == "Placeholder")
+	{
+		row = l.getFirstEmptyRow(tabname, undef);
+	}
+	else
+	{
+		row = l.getFirstEmptyRow(tabname);
+	}
+	if (row == undefined)
+	{
+		l.showError("No blank rows!");
+		return;
+	}
+	row.activate();
+}
+
+
 /*
  ************************
  *		sheet setup		*
@@ -53,6 +77,7 @@ function onOpen ()
 	var ui = SpreadsheetApp.getUi();
 	ui.createMenu("Budget")
 		.addItem("Split Line Item", "splitLine")
+		.addItem("Find Blank Row", "jumpToBottom")
 		.addSubMenu(ui.createMenu("More Things")
 				.addItem("SubThing", "subThing")
 			)
