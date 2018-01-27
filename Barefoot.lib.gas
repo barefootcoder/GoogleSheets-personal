@@ -21,6 +21,8 @@ var last     = _.last;
 var tail     = _.tail;
 var uniq     = _.uniq;
 var union    = _.union;
+var flatten  = _.flatten;
+var firstidx = _.findIndex;		// renamed
 
 // objects
 var keys     = _.keys;
@@ -120,9 +122,9 @@ function dateFromCell (cell)
 
 function dateIntoCell (date, cell)
 {
-	debug(3, "dateIntoCell: going to set cell " + cell.getA1Notation() + " to value: "
+	debug(3, "dateIntoCell: going to set cell " + displayAddress(cell) + " to value: "
 			+ dateAsString(date) + " [from " + date.toString() + "]");
-	cell.setValue( dateAsString(date) );
+	return cell.setValue( dateAsString(date) );
 }
 
 
@@ -159,6 +161,15 @@ function showError (msg)
 {
 	var ui = SpreadsheetApp.getUi();
 	ui.alert("ERROR", msg, ui.ButtonSet.OK);
+}
+
+	/*	Print an informational message to the screen.  Requires click to proceed.
+	 *	@param	{string}		msg				message to print
+	 */
+function infoMsg (msg)
+{
+	var ui = SpreadsheetApp.getUi();
+	ui.alert("INFO", msg, ui.ButtonSet.OK);
 }
 
 	/*	Print a confirmation prompt to the screen.  Return `true` or `false`.
@@ -227,6 +238,15 @@ function debug (level, msg)
  *	Sheet Utility	*
  ********************
  */
+
+	/*	Given a range, report its full address (including sheet) in A1 notation.
+	 *	@param	{Range}			range			range to show address of
+	 *	@return	{string}						the full address
+	 */
+function displayAddress (range)
+{
+	return range.getSheet().getName() + "!" + range.getA1Notation();
+}
 
 	/*	Return the first empty row on the requested sheet.
 	 *	@param	{string}		tab_name		name of the tab to find the first empty row of

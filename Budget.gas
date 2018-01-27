@@ -6,6 +6,59 @@
  ************************
  */
 
+function makeNewTransRows()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var tabname = tab.getName();
+	if (tabname == "Checking" || tabname == "Savings")
+	{
+		var num_rows = ~~l.prompt("NEW LEDGER ROWS", "How many rows do you need to add?");
+		var add_rows = function (tab)
+		{
+			var top_row = l.getDataSlice(tab, { row: 1, after_headers: true, as: 'range' });
+			var top_rownum = top_row.getRow();
+			// figure out how many columns are blank vs have formulae in them
+			// (have to add one to change `findIndex` return (0-origin) to a column number (1-origin))
+			var formulae_start_at = l.firstidx(l.flatten(top_row.getFormulas()), function (_) { return _ != "" }) + 1;
+			tab.insertRowsBefore(top_rownum, num_rows);
+			var last_column = tab.getMaxColumns();
+			l.debug(2, "makeNewTransRows: on " + tab.getName() + ", inserted " + num_rows + " rows, "
+					+ "formulae at column " + formulae_start_at + " (out of " + last_column + ")");
+			// have to reset "top_row", because it's no longer at the top
+			top_row = l.getDataSlice(tab, { row: num_rows + 1, after_headers: true, as: 'range' });
+			if ( formulae_start_at == 0 )
+			{
+				// no formulae
+				top_row.copyTo(tab.getRange(top_rownum, 1, num_rows, last_column), {formatOnly: true});
+			}
+			else
+			{
+				// left side, values: copy formats only; right side, formulae: copy everything
+				var last_value = formulae_start_at - 1;
+				var left_side = top_row.offset(0,0, 1,last_value);
+				l.debug(3, "makeNewTransRows: copying formats from " + l.displayAddress(left_side) + " to "
+						+ top_rownum + ',' + 1 + '+' + num_rows + '+' + last_value);
+				left_side.copyTo(tab.getRange(top_rownum, 1, num_rows, last_value), {formatOnly: true});
+				var right_side = top_row.offset(0,formulae_start_at-1, 1,last_column-formulae_start_at);
+				l.debug(3, "makeNewTransRows: copying all from " + l.displayAddress(right_side) + " to "
+						+ top_rownum + ',' + formulae_start_at + '+' + num_rows + '+' + last_column);
+				right_side.copyTo(tab.getRange(top_rownum, formulae_start_at, num_rows, last_column));
+			}
+			tab.getRange(top_rownum, 1, 1,1).activate()
+		};
+		add_rows(me.getSheetByName(tabname + "Categorization"));
+		add_rows(tab);
+		l.infoMsg("Copy and paste rows in the space provided, values only (Ctrl-Shift-V).");
+	}
+	else
+	{
+		l.showError("You're not on a ledger tab.");
+		return;
+	}
+}
+
+
 function splitLine ()
 {
 	// use double ~ to force it to be an integer
@@ -144,6 +197,7 @@ function onOpen ()
 {
 	var ui = SpreadsheetApp.getUi();
 	ui.createMenu("Budget")
+		.addItem("Insert Transactions", "makeNewTransRows")
 		.addItem("Split Line Item", "splitLine")
 		.addItem("Split Paycheck", "splitPaycheck")
 		.addItem("Find Blank Row", "jumpToBottom")
