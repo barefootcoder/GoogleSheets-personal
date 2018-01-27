@@ -42,6 +42,74 @@ function splitLine ()
 }
 
 
+function splitPaycheck ()
+{
+	var date = l.prompt("SPLIT PAYCHECK", "Date of paycheck:");
+	if (date == undefined)
+	{
+		return;
+	}
+
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("Transfer");
+	var last_row = l.getFirstEmptyRow(tab.getName()).getRow() - 1;
+	l.debug(2, "pulling last ID from row " + last_row);
+
+	// let Sheets parse the date for us
+	// (it will do a far better job than `Date.parse`)
+	var date_cell = me.getRange("LastPaycheckDate").setValue(date);
+	date = l.dateAsString( l.dateFromCell(date_cell) );
+	l.debug(1, "using paycheck date: " + date);
+
+	var dest_cols = { id:"ID", descr:"Description", amt:"Amount", from:"From Category", to:"To Category", };
+	l.each(dest_cols, function (value, key, list)
+	{
+		var col = l.getColumnOfHeader(tab, value);
+		if (col == undefined)
+		{
+			throw "cannot find column " + value + " on tab " + tab.getName();
+		}
+		list[key] = col;
+	});
+	var last_id = Number(tab.getRange(last_row, dest_cols.id, 1,1).getValue().substr(1));
+
+	var budget_tab   = me.getSheetByName("Budget");
+	var source_cols = { category:"Expenses:", fund:"Fund:", paycheck:"Per Paycheck:", };
+	l.each(source_cols, function (value, key, list)
+	{
+		var col = l.getColumnOfHeader(budget_tab, value);
+		if (col == undefined)
+		{
+			throw "cannot find column " + value + " on tab " + budget_tab.getName();
+		}
+		list[key] = col;
+	});
+	var categories = l.getDataSlice(budget_tab, { col: source_cols.category, as: 'values' });
+	var fund_codes = l.getDataSlice(budget_tab, { col: source_cols.fund    , as: 'values' });
+	var amounts    = l.getDataSlice(budget_tab, { col: source_cols.paycheck, as: 'values' });
+
+	var description = "Paycheck Split (" + date + ")"
+	var new_row = last_row + 1;
+	last_row = l.getDataSlice(tab, { row: last_row, after_headers: true, as: 'range' });
+	for (var i=0, len=categories.length; i < len; ++i)
+	{
+		var category  = categories[i][0];
+		var fund_code = fund_codes[i][0];
+		var amount    =    amounts[i][0];
+		if (fund_code == "P")
+		{
+			var row = l.getDataSlice(tab, { row: new_row++, as: 'range' });
+			last_row.copyTo(row, {formatOnly: true});
+			row.getCell(1, dest_cols.id)   .setValue(Utilities.formatString('T%04d', ++last_id));
+			row.getCell(1, dest_cols.descr).setValue(description);
+			row.getCell(1, dest_cols.amt)  .setValue(amount);
+			row.getCell(1, dest_cols.from) .setValue("Reserve");
+			row.getCell(1, dest_cols.to)   .setValue(category);
+		}
+	}
+}
+
+
 function jumpToBottom ()
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
@@ -77,6 +145,7 @@ function onOpen ()
 	var ui = SpreadsheetApp.getUi();
 	ui.createMenu("Budget")
 		.addItem("Split Line Item", "splitLine")
+		.addItem("Split Paycheck", "splitPaycheck")
 		.addItem("Find Blank Row", "jumpToBottom")
 		.addSubMenu(ui.createMenu("More Things")
 				.addItem("SubThing", "subThing")

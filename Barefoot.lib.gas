@@ -11,6 +11,7 @@ var _ = Underscore.load();
 // arrays or objects
 var contains = _.contains;
 var grep     = _.find;			// renamed
+var each     = _.each;
 var min      = _.min;
 var max      = _.max;
 var shuffle  = _.shuffle;
@@ -37,10 +38,43 @@ var random  = _.random;			// (min, max)
 
 
 /*
- *********************
- * Numeric Functions *
- *********************
+ ********************
+ * Scalar Functions *
+ ********************
  */
+
+// It is moderately insane that I have to write this.
+// It's a _little_ bit insane that Javascript doesn't have this built in in the
+// first place, but I can live with that.  The next best solution is to use
+// `constructor.name`, which works great on built-in types such as Array or
+// RegExp or Date, but fails abysmally on Google Sheets objects, which always
+// return `undefined` for `constructor` (just to be difficult, I suspect).  So,
+// if we suspect we've gotten hold of one of those, we have to fall back to
+// just trying to convert the object to a string, which magically turns out to
+// be the name of the class.  Obligatory Stack Overflow references:
+// https://stackoverflow.com/questions/1249531/how-to-get-a-javascript-objects-class
+// https://stackoverflow.com/questions/15325301/type-checking-on-google-apps-script-platform
+function ref(obj)
+{
+	if (obj)
+	{
+		if (obj.constructor && obj.constructor.name)
+		{
+			return obj.constructor.name;
+		}
+		else if (typeof obj == 'object') // might be a Google built-in class
+		{
+			return obj.toString();
+		}
+	}
+	else if (obj == undefined)
+	{
+		return "undefined";
+	}
+
+	return undefined;
+}
+
 
 // Yet another one that it's insane that I have to write myself.  And, once
 // again, I *should* have Math.trunc(), but GAS JS just ... doesn't.
@@ -60,7 +94,14 @@ function int (number)
 
 function dateAsString (date)
 {
-	return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
+	if (ref(date) == "Date")
+	{
+		return (date.getMonth() + 1) + '/' + date.getDate() + '/' + date.getFullYear();
+	}
+	else
+	{
+		return "NotADate";
+	}
 }
 
 function today ()
@@ -297,10 +338,20 @@ function getDataBlock (tab, start_col, end_col)
 }
 
 
+var _tab_headers;
 function tabHeaders (tab)
 {
-	var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
-	return headers[0];
+	var tabName = tab.getName();
+	if (_tab_headers == undefined)
+	{
+		_tab_headers = new Object();
+	}
+	if (_tab_headers[tabName] == undefined)
+	{
+		var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
+		_tab_headers[tabName] = headers[0];
+	}
+	return _tab_headers[tabName];
 }
 
 function getColumnOfHeader (tab, header)
