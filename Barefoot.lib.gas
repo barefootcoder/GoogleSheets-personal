@@ -10,32 +10,34 @@ var _ = Underscore.load();
 
 // arrays or objects
 var contains = _.contains;
-var grep     = _.find;			// renamed
-var each     = _.each;
-var min      = _.min;
-var max      = _.max;
-var shuffle  = _.shuffle;
+var grep       = _.find;		// renamed
+var each       = _.each;
+var foreach    = _.each;		// alias
+var min        = _.min;
+var max        = _.max;
+var shuffle    = _.shuffle;
 
 // arrays
-var last     = _.last;
-var tail     = _.tail;
-var uniq     = _.uniq;
-var union    = _.union;
-var flatten  = _.flatten;
-var firstidx = _.findIndex;		// renamed
+var last       = _.last;
+var tail       = _.tail;
+var uniq       = _.uniq;
+var union      = _.union;
+var flatten    = _.flatten;
+var firstidx   = _.findIndex;	// renamed
+var difference = _.difference;
 
 // objects
-var keys     = _.keys;
-var values   = _.values;
-var pairs    = _.pairs;
+var keys       = _.keys;
+var values     = _.values;
+var pairs      = _.pairs;
 
 // functions
-var memoize  = _.memoize;
-var once     = _.once;
-var wrap     = _.wrap;
+var memoize    = _.memoize;
+var once       = _.once;
+var wrap       = _.wrap;
 
 // number
-var random  = _.random;			// (min, max)
+var random    = _.random;		// (min, max)
 
 
 
