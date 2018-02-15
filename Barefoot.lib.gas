@@ -108,14 +108,30 @@ function dateAsString (date)
 	}
 }
 
-function today ()
+function today (opts)
 {
+	var return_as = opts == undefined ? "string" : opts["as"];
+
 	var today = new Date();
 	// Subtract 6 hours so midnight - 6am will be "yesterday."
 	// See: https://stackoverflow.com/questions/1050720/adding-hours-to-javascript-date-object
 	today.setTime(today.getTime() - 6*60*60*1000);
-	return dateAsString(today);
+	if (return_as == "date")
+	{
+		return today;
+	}
+	else
+	{
+		return dateAsString(today);
+	}
 }
+
+function addDays (date, days)
+{
+	date.setDate(date.getDate() + days);
+	return date;
+}
+
 
 function dateFromCell (cell)
 {

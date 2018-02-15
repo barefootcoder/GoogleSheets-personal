@@ -20,6 +20,23 @@ function data_keys (obj)
 	return l.difference(l.keys(obj), ro_keys(obj));
 }
 
+function rowIntoObject (row)
+{
+	var values = row.getValues()[0];
+	var obj = {};
+	for (var i=0, len=values.length; i < len; ++i)
+	{
+		l.debug(4, "rowIntoObject: calling dataHeaderColumn(" + (i + 1) + ")");
+		var header = dataHeaderColumn(i + 1);
+		if (header == undefined)
+		{
+			return;
+		}
+		obj[header] = values[i];
+	}
+	return obj;
+}
+
 
 function getID (range)
 {
@@ -64,19 +81,7 @@ function getRowForObject (id)
 
 function getObject (id)
 {
-	var values = getRowForObject(id).getValues()[0];
-	var obj = {};
-	for (var i=0, len=values.length; i < len; ++i)
-	{
-		l.debug(4, "getObject: calling dataHeaderColumn(" + (i + 1) + ")");
-		var header = dataHeaderColumn(i + 1);
-		if (header == undefined)
-		{
-			return;
-		}
-		obj[header] = values[i];
-	}
-	return obj;
+	return rowIntoObject(getRowForObject(id));
 }
 
 var data_headers;
@@ -328,7 +333,7 @@ function tweakPriority (amount)
 	{
 		var date = l.dateFromCell(cell);
 		l.debug(3, "tweakPriority: got date from cell: " + date.toString());
-		date.setDate(date.getDate() + amount);
+		l.addDays(date, amount);
 		l.dateIntoCell(date, cell);
 	}
 	else
@@ -369,7 +374,7 @@ function tweakPriority (amount)
 		{
 			if (l.confirm("No priority or due date; shall we push from today's date?"))
 			{
-				var date = new Date( Date.parse(l.today()) );
+				var date = l.today({ as: 'date' });
 				date.setDate(date.getDate() + amount);
 				cell = item.getCell(1, due_col);
 				l.dateIntoCell(date, cell);
@@ -414,7 +419,7 @@ function pushItemArbitrary ()
 			return;
 		}
 
-		var date = new Date( Date.parse(l.today()) );
+		var date = l.today({ as: 'date' });
 		l.debug(3, "pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((day + 7 - date.getDay()) % 7));
 		date.setDate( date.getDate() + ((day + 7 - date.getDay()) % 7) );
 		l.debug(3, "pushItemArbitrary: new date => " + date.toISOString());
@@ -429,9 +434,9 @@ function pushItemArbitrary ()
 
 
 /*
- ********************
- *		InTray		*
- ********************
+ ************************
+ *	InTray & Recurring	*
+ ************************
  */
 
 function newInTray ()
@@ -475,6 +480,79 @@ function emptyInTray ()
 		updateItem({ id: id, list: new_list });
 		row.getCell(1, 1).clear();					// clear out the new_list value now that we've used it
 	}
+}
+
+
+function addRecurring ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var tabname = tab.getName();
+
+	if (tabname != "Recurring")
+	{
+		if (l.confirm("You're not on the recurring sheet; proceed anyway?"))
+		{
+			tab = me.getSheetByName("Recurring");
+			tab.activate();
+		}
+		else
+		{
+			return;
+		}
+	}
+
+	var num_items = 0;
+	var dest_row = jumpToBottom("RawData").getRow();
+	var which_rows = l.getDataSlice(tab, { col: 1, as: 'values' });
+	l.debug(3, "addRecurring: which_rows isa " + l.ref(which_rows));
+	l.each(which_rows, function (value, idx)
+	{
+		var row = idx + 1;		// convert from 0-origin to 1-origin
+		if (value == "X")
+		{
+			var template = rowIntoObject( l.getDataSlice(tab, { row: row, after_headers: true, as: "range" }) );
+			var due = template.due
+			if ( /^[+-]?\d+$/.test(due) )
+			{
+				template.due = l.dateAsString(l.addDays(l.today({ as: 'date' }), due));
+			}
+			else if ( /^\d{1,2}[a-z]{2}$/.test(due) )
+			{
+				var day = due.substr(0,due.length-2);
+				var due = new Date();
+				due.setDate(day);
+				template.due = l.dateAsString(due);
+			}
+			else
+			{
+				l.showError("can't figure out recurring due date format: " + due);
+				return;
+			}
+			copyItem(template);
+			++num_items;
+		}
+		else if (value != "")
+		{
+			l.showError("Illegal check value in row " + row + ": " + value);
+			// non-fatal error, so just keep going
+		}
+	});
+	l.debug(2, "addRecurring: found " + num_items + " items");
+
+	if (num_items)
+	{
+		l.infoMsg("Added " + num_items + " new tasks.");
+		var rdata = me.getSheetByName("RawData");
+		rdata.getRange(dest_row, 1, num_items, rdata.getMaxColumns()).activate();
+	}
+	else
+	{
+		tab.activate();
+		l.showError("No recurring tasks selected to add.");
+	}
+
+	l.getDataSlice(tab, { col: 1, after_headers: true, as: 'range' }).clearContent();
 }
 
 
@@ -757,11 +835,14 @@ function resort ()
 }
 
 
-function jumpToBottom ()
+function jumpToBottom (tabname)
 {
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getActiveSheet();
-	var tabname = tab.getName();
+	if (tabname == undefined)
+	{
+		var me = SpreadsheetApp.getActiveSpreadsheet();
+		var tab = me.getActiveSheet();
+		tabname = tab.getName();
+	}
 
 	var row;
 	if (tabname == "RawData")
@@ -777,7 +858,7 @@ function jumpToBottom ()
 		l.showError("No blank rows!");
 		return;
 	}
-	row.activate();
+	return row.activate();
 }
 
 
@@ -793,6 +874,7 @@ function onOpen ()
 	ui.createMenu("Todo")
 		.addItem("New Item", "newInTray")
 		.addItem("New Item and Jump to Edit", "newAndEdit")
+		.addItem("Add Recurring Tasks", "addRecurring")
 		.addSubMenu(ui.createMenu("More New Stuff")
 				.addItem("New Task for Today", "newTaskToday")
 				.addItem("Record Completed Task", "newTaskCompleted")
