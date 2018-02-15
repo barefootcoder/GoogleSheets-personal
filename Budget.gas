@@ -73,11 +73,12 @@ function splitLine ()
 	var pos = me.getActiveCell();
 
 	var rownum = pos.getRow();
+	l.debug(2, "splitLine: splitting line at row " + rownum);
 	var row = tab.getRange(rownum, 1, 1, tab.getMaxColumns());
 	tab.insertRowsAfter(rownum, num_splits - 1);
 	for (var i=num_splits; i > 0; --i)
 	{
-		l.debug(3, "new row at pos " + (rownum + i - 1));
+		l.debug(3, "splitLine: new row at pos " + (rownum + i - 1));
 		var new_row = tab.getRange(rownum + i - 1, 1, 1, tab.getMaxColumns());
 		var amount = new_row.getCell(1, 2);
 		if (i == 1)

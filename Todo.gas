@@ -207,7 +207,7 @@ function splitItem ()
 	}
 
 	var obj = getObject(id);
-	l.debug(2, "splitItem: object with keys: " + l.keys(obj).join());
+	l.debug(2, "splitItem: object with keys: " + l.keys(obj).join(","));
 	// Figure out if this item needs to be closed out.  Obviously we have to do
 	// this _before_ we blank out the completed date for the new copy.
 	// If it already has a completed date, don't close it out.
