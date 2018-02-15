@@ -308,7 +308,8 @@ function setDueDate (new_val)
 
 	var due_col = dataHeaderColumn("due");
 	var cell = item.getCell(1, due_col);
-	if ( typeof(new_val) == "Date" )
+	l.debug(4, "setDueDate: incoming value has type " + l.ref(new_val));
+	if ( l.ref(new_val) == "Date" )
 	{
 		l.dateIntoCell(new_val, cell);
 	}
