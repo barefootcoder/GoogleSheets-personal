@@ -308,6 +308,37 @@ function getFirstEmptyRow (tab_name, column)
 }
 
 
+// adapted from:
+// https://sites.google.com/site/scriptsexamples/learn-by-example/google-sheets-api/filters
+function getIndexesOfHiddenColumns (tab)
+{
+	var ssID = tab.getParent().getId();
+	var sheetID = tab.getSheetId();
+	var hiddenColumns = [];
+
+	// limit what's returned from the API
+	var fields = "sheets(data(columnMetadata(hiddenByUser)),properties/sheetId)";
+	var sheets = Sheets.Spreadsheets.get(ssID, {fields: fields}).sheets;
+
+	for (var i = 0; i < sheets.length; i++)
+	{
+		if (sheets[i].properties.sheetId == sheetID)
+		{
+			var data = sheets[i].data;
+			var columns = data[0].columnMetadata;
+			for (var j = 0; j < columns.length; j++)
+			{
+				if (columns[j].hiddenByUser)
+				{
+					hiddenColumns.push(j + 1);
+				}
+			}
+		}
+	}
+	return hiddenColumns;
+}
+
+
 function getDataSlice (tab, opts)
 {
 	var return_as = opts["as"];

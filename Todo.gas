@@ -731,6 +731,14 @@ function saveDay ()
 		var completed = l.getDataBlock(tab, "#3", "#END").getValues();
 		l.getDataBlock(day, "#3", "#END").setValues(completed);
 	}
+
+	// whether fresh or recopy, remove values in hidden columns
+	// they just take up space and reduce the number of days we can have in the diary at a time
+	var cols = l.getIndexesOfHiddenColumns(day);
+	l.each(cols, function (value)
+	{
+		l.getDataSlice(day, { col: value, as: "range" }).clear();
+	});
 }
 
 
