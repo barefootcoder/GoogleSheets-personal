@@ -307,7 +307,7 @@ function getDataSlice (tab, opts)
 	var return_as = opts["as"];
 	if (return_as == undefined)
 	{
-		l.showError("getDataSlice: must specify how to return");
+		showError("getDataSlice: must specify how to return");
 		return;
 	}
 
@@ -338,14 +338,14 @@ function getDataSlice (tab, opts)
 	}
 	else
 	{
-		l.showError("getDataSlice: must specify either row or column");
+		showError("getDataSlice: must specify either row or column");
 		return;
 	}
 
 	var range = tab.getRange(start_row, start_col, num_rows, num_cols);
 	if ( typeof range == 'undefined' )
 	{
-		l.showError("Cannot find any values to slice: " + start_row + ", " + start_col);
+		showError("Cannot find any values to slice: " + start_row + ", " + start_col);
 		return;
 	}
 
@@ -359,7 +359,7 @@ function getDataSlice (tab, opts)
 	}
 	else
 	{
-		l.showError("getDataRow: illegal return type: " + return_as);
+		showError("getDataRow: illegal return type: " + return_as);
 		return;
 	}
 }
@@ -395,6 +395,8 @@ function tabHeaders (tab)
 function getColumnOfHeader (tab, header)
 {
 	var headers = tabHeaders(tab);
+	debug(3, "getColumnOfHeader: finding column " + header + " on tab "
+			+ (ref(tab) == "Sheet" ? 'sheet:' + tab.getName() : tab));
 	for (var i=0, len=headers.length; i < len; ++i)
 	{
 		debug(4, "getColumnOfHeader: checking " + headers[i] + " against " + header);
