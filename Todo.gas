@@ -421,8 +421,8 @@ function pushItemArbitrary ()
 		}
 
 		var date = l.today({ as: 'date' });
-		l.debug(3, "pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((day + 7 - date.getDay()) % 7));
 		date.setDate( date.getDate() + ((day + 7 - date.getDay()) % 7) );
+		date = l.nextDoW(date, day);
 		l.debug(3, "pushItemArbitrary: new date => " + date.toISOString());
 		setDueDate(date);
 	}

@@ -132,6 +132,19 @@ function addDays (date, days)
 	return date;
 }
 
+function nextDoW (date, dow)
+{
+	// we'd like to have Mon == 1, Sun == 7, but sometimes we get Sun == 0, Sat == 6
+	// so this will convert from one to the other
+	if (dow == 0)
+	{
+		dow = 7;
+	}
+	debug(3, "pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((dow + 7 - date.getDay()) % 7));
+	date.setDate( date.getDate() + ((dow + 7 - date.getDay()) % 7) );
+	return date;
+}
+
 
 function dateFromCell (cell)
 {

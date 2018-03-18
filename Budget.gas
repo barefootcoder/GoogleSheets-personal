@@ -190,6 +190,74 @@ function jumpToBottom ()
 
 /*
  ************************
+ *	Family Bank stuff	*
+ ************************
+ */
+
+function familyPaychecks ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("ControlData");
+	var info = {};
+	l.each(me.getRange("PaycheckInfo").getValues(), function (values)
+	{
+		var control =
+		{
+			name:		values[0],
+			bday:		values[1],
+			amt:		values[2],
+			pre_qty:	values[3],
+			post_qty:	values[4],
+			last_id:	values[5],
+			bday_dow:	values[6],
+			last_check:	values[7],
+		};
+		control.tab = me.getSheetByName(control.name + "Bank");
+		info[control.name] = control;
+	});
+	l.each(l.keys(info), function (person)
+	{
+		var control = info[person];
+		var last_date = control.last_check;
+		var last_id   = +control.last_id.substr(-4);
+		var num_pre   = control.pre_qty;
+		var num_post  = control.post_qty;
+		while (control.amt > 0 && num_pre + num_post > 0)
+		{
+			var amount;
+			var next_paycheck = l.nextDoW(last_date, control.bday_dow);
+			var bank_row = l.getFirstEmptyRow(person + "Bank").offset(0,0, 1,4);
+			var id = "P" + ('0000' + (last_id + 1)).substr(-4);
+			var descr = "Paycheck (" + l.dateAsString(next_paycheck) + ")";
+			if (num_pre > 0)
+			{
+				amount = control.amt;
+				--num_pre;
+				++last_id;
+			}
+			else if (control.bday > last_date && control.bday <= next_paycheck)
+			{
+				amount = 25 * control.amt;
+				next_paycheck = control.bday;
+				var year = next_paycheck.year();
+				id = "D" + year;
+				descr = "Birthday Bonus (" + year + ")";
+			}
+			else if (num_post > 0)
+			{
+				amount = control.amt + 1;
+				--num_post;
+				++last_id;
+			}
+			bank_row.setValues([[ id, descr, next_paycheck, amount ]]);
+			last_date = l.addDays(next_paycheck, 1);
+		}
+	});
+}
+
+
+/*
+ ************************
  *		sheet setup		*
  ************************
  */
@@ -205,6 +273,8 @@ function onOpen ()
 		.addSubMenu(ui.createMenu("More Things")
 				.addItem("SubThing", "subThing")
 			)
+		.addSeparator()
+		.addItem("Disburse Family Paychecks", "familyPaychecks")
 		.addSeparator()
 		.addItem("Test", "testCurrentThing")
 		.addToUi();
