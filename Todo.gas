@@ -140,7 +140,7 @@ function newItem (object)
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
 	var headers = l.tabHeaders(tab);
-	var new_row = l.getFirstEmptyRow("RawData", 10);
+	var new_row = l.getFirstEmptyRow("RawData", "Description");
 	if (new_row == undefined)
 	{
 		l.showError("can't find an empty row for a new item");
@@ -465,7 +465,7 @@ function emptyInTray ()
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("InTray");
 	var first_row = tab.getFrozenRows() + 1;
-	var last_row = l.getFirstEmptyRow("InTray", 11).getRow() - 1;
+	var last_row = l.getFirstEmptyRow("InTray", "Description").getRow() - 1;
 	if (first_row > last_row)
 	{
 		l.showError("InTray is already empty!");
@@ -848,7 +848,7 @@ function jumpToBottom (tabname)
 	var row;
 	if (tabname == "RawData")
 	{
-		row = l.getFirstEmptyRow(tabname, 10);
+		row = l.getFirstEmptyRow(tabname, "Description");
 	}
 	else
 	{

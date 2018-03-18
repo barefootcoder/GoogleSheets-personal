@@ -274,9 +274,15 @@ function displayAddress (range)
 function getFirstEmptyRow (tab_name, column)
 {
 	// Handle defaults, since GAS JS is too old to do it in the signature.
-	if ( column == undefined )
+	var col_type = ref(column);
+	debug(3, "getFirstEmptyRow: treating column as " + col_type);
+	if ( col_type == "undefined" )
 	{
 		column = 1;
+	}
+	else if ( col_type == "String" )
+	{
+		column = getColumnOfHeader(tab_name, column);
 	}
 
 	// http://stackoverflow.com/questions/6882104/faster-way-to-find-the-first-empty-row
