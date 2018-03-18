@@ -91,7 +91,9 @@ function dataHeaderColumn (column)
 	if (data_headers == undefined)
 	{
 		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
-		data_header_row = l.tabHeaders(tab);
+		// using `.slice()` to make a copy of the array, else we'd update the original array
+		// oblig SO ref: https://stackoverflow.com/questions/7486085/copying-array-by-value-in-javascript
+		data_header_row = l.tabHeaders(tab).slice();
 		data_headers = {};
 		for (var i=0, len=data_header_row.length; i < len; ++i)
 		{
