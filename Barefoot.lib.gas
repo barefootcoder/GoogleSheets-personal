@@ -416,13 +416,31 @@ function getDataBlock (tab, start_col, end_col)
 var _tab_headers;
 function tabHeaders (tab)
 {
-	var tabName = tab.getName();
+	var tab_type = ref(tab);
+	var tabName;
+	if (tab_type == "Sheet")
+	{
+		tabName = tab.getName();
+	}
+	else if (tab_type == "String")
+	{
+		tabName = tab;
+	}
+	else
+	{
+		showError("Don't know how to extract tabname from type " + tab_type);
+	}
+
 	if (_tab_headers == undefined)
 	{
 		_tab_headers = new Object();
 	}
 	if (_tab_headers[tabName] == undefined)
 	{
+		if (tab_type == "String")
+		{
+			tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+		}
 		var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
 		_tab_headers[tabName] = headers[0];
 	}
