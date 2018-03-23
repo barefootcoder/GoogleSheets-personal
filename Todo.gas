@@ -506,6 +506,7 @@ function addRecurring ()
 	}
 
 	var num_items = 0;
+	var descr_col = l.getColumnOfHeader(tab, "Description");
 	var dest_row = jumpToBottom("RawData").getRow();
 	var which_rows = l.getDataSlice(tab, { col: 1, as: 'values' });
 	l.debug(3, "addRecurring: which_rows isa " + l.ref(which_rows));
@@ -514,8 +515,10 @@ function addRecurring ()
 		var row = idx + 1;		// convert from 0-origin to 1-origin
 		if (value == "X")
 		{
-			var template = rowIntoObject( l.getDataSlice(tab, { row: row, after_headers: true, as: "range" }) );
-			var due = template.due
+			var src_row = l.getDataSlice(tab, { row: row, after_headers: true, as: "range" });
+			var template = rowIntoObject( src_row );
+			// set due date based on a few different formats
+			var due = template.due;
 			if ( /^[+-]?\d+$/.test(due) )
 			{
 				template.due = l.dateAsString(l.addDays(l.today({ as: 'date' }), due));
@@ -531,6 +534,17 @@ function addRecurring ()
 			{
 				l.showError("can't figure out recurring due date format: " + due);
 				return;
+			}
+			// handle any potential alternating tasks
+			if ( new RegExp('//').test(template.description) )			// *definitely* nicer-looking than `/\/\//.test`
+			{
+				var parts = template.description.split('//');
+				var which = l.int( parts.pop() );
+				template.description = parts[which-1];
+				// update the source so next time we get the next part
+				var next = which == parts.length ? 1 : which + 1;
+				parts.push( next );
+				src_row.getCell(1, descr_col).setValue( parts.join('//') );
 			}
 			copyItem(template);
 			++num_items;
