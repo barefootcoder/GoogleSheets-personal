@@ -528,7 +528,13 @@ function addRecurring ()
 				var day = due.substr(0,due.length-2);
 				var due = new Date();
 				due.setDate(day);
+				// let's assume that we always want dates in _next_ month
+				due.setMonth( due.getMonth() + 1 );
 				template.due = l.dateAsString(due);
+			}
+			else if ( due == "" )
+			{
+				template.due = "";
 			}
 			else
 			{
