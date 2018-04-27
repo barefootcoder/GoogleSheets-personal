@@ -323,6 +323,49 @@ function setDueDate (new_val)
 	}
 }
 
+function incPriority (base, inc, opts)
+{
+	// Handle defaults, since GAS JS is too old to do it in the signature.
+	if ( opts == undefined )
+	{
+		opts = { max_num: undefined, max_letter: undefined };
+	}
+	if ( opts.max_num == undefined )
+	{
+		opts.max_num = 3;
+	}
+	if ( opts.max_letter == undefined )
+	{
+		opts.max_letter = 26;
+	}
+
+	var letter = base.charCodeAt(0) - 64;	// so "A" == 1, "B == 2, "C" == 3, etc
+	var number = base.charAt(1);
+	number = Number(number) + inc;
+	if (number < 1 || number > opts.max_num)
+	{
+		// subtract 1 to go back to 0-index
+		number -= 1;
+		// divide by 3 because this is essentially base-3
+		// then floor (not truncate!) to get the proper integer
+		var letter_adjustment = Math.floor( number / opts.max_num );
+		letter += letter_adjustment;
+		// number is now the remainder
+		// see: http://javascript.about.com/od/problemsolving/a/modulobug.htm
+		// have I mentioned lately that Javascript is stupid?
+		number = (number % opts.max_num + opts.max_num) % opts.max_num;
+		// and, finally, back to 1-index
+		number += 1;
+		if (letter < 1 || letter > opts.max_letter)
+		{
+			l.showError("trying to adjust priority out-of-bounds: " +
+					letter + '/' + number + ' [' + opts.max_letter + '/' + opts.max_num + ']');
+			return;
+		}
+	}
+	return String.fromCharCode(64 + letter) + number;
+}
+
 function tweakPriority (amount)
 {
 	var item = getCurrentRow();
@@ -348,30 +391,12 @@ function tweakPriority (amount)
 		value = cell.getValue();
 		if (value != "")
 		{
-			var letter = value.charCodeAt(0) - 64;	// so "A" == 1, "B == 2, "C" == 3
-			var number = value.charAt(1);
-			number = Number(number) + amount;
-			if (number < 1 || number > 3)
+			var new_pri = incPriority(value, amount);
+			if (new_pri == undefined)
 			{
-				// subtract 1 to go back to 0-index
-				number -= 1;
-				// divide by 3 because this is essentially base-3
-				// then floor (not truncate!) to get the proper integer
-				var letter_adjustment = Math.floor( number / 3 );
-				letter += letter_adjustment;
-				// number is now the remainder
-				// see: http://javascript.about.com/od/problemsolving/a/modulobug.htm
-				// have I mentioned lately that Javascript is stupid?
-				number = (number % 3 + 3) % 3;
-				// and, finally, back to 1-index
-				number += 1;
-				if (letter < 1 || letter > 3)
-				{
-					l.showError("trying to adjust priority out-of-bounds: " + letter + '/' + number);
-					return;
-				}
+				// error already printed by incPriority
+				return;
 			}
-			var new_pri = String.fromCharCode(64 + letter) + number;
 			l.debug(3, "tweakPriority: setting (hopefully) to new priority: " + new_pri);
 			cell.setValue(new_pri);
 		}
