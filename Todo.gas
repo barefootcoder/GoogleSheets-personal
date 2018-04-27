@@ -1,7 +1,7 @@
 /*
- ************************
- * general object funcs *
- ************************
+ **********************
+ * general item funcs *
+ **********************
  */
 
 // Return a list of keys in an object that should not be allowed to be modified.
@@ -138,6 +138,30 @@ function dataSet (row, column, value)
 	}
 }
 
+
+function getIDofCurrentRow ()
+{
+	var pos = SpreadsheetApp.getActiveSpreadsheet().getActiveCell();
+	var id = getID(pos);
+	if (id == undefined)
+	{
+		l.showError("This row does not appear to be an item.");
+		return;
+	}
+	return id;
+}
+
+function getCurrentRow ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+	return getRowForObject(id);
+}
+
+
 function newItem (object)
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
@@ -248,28 +272,6 @@ function jumpToItem ()
 	row.activate();
 }
 
-
-function getIDofCurrentRow ()
-{
-	var pos = SpreadsheetApp.getActiveSpreadsheet().getActiveCell();
-	var id = getID(pos);
-	if (id == undefined)
-	{
-		l.showError("This row does not appear to be an item.");
-		return;
-	}
-	return id;
-}
-
-function getCurrentRow ()
-{
-	var id = getIDofCurrentRow();
-	if (id == undefined)
-	{
-		return;
-	}
-	return getRowForObject(id);
-}
 
 function markCompleted ()
 {
