@@ -934,6 +934,7 @@ function onOpen ()
 		.addItem("Resort",   "resort")
 		.addItem("Find Blank Row", "jumpToBottom")
 		.addSeparator()
+		.addItem("Debug Tab", "l.debug_tab")
 		.addItem("Test", "testCurrentThing")
 		.addToUi();
 }

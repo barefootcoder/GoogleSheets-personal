@@ -262,6 +262,18 @@ function debug (level, msg)
 	}
 }
 
+	/*	Debug some info about the current tab.
+	 */
+function debug_tab ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+	var msg = "data range is " + me.getDataRange().getA1Notation() + "\n"
+			+ "tab color is " + me.getTabColor() + "\n";
+
+	var ui = SpreadsheetApp.getUi();
+	ui.alert("DEBUG", msg, ui.ButtonSet.OK);
+}
+
 
 
 /*
