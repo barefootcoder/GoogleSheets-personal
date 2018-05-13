@@ -272,6 +272,34 @@ function jumpToItem ()
 	row.activate();
 }
 
+function visitFilteredRows (tabName, apply)
+{
+	// the tasks tab has only non-completed tasks, which is almost exactly the subset we need
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+	var data_vals = tab.getDataRange().getValues();
+	var cols = {};
+	l.foreach(l.tabHeaders(tab), function (_, idx)
+	{
+		var col = _.toLowerCase();
+		cols[col] = idx;
+		l.debug(4, "visitFilteredRows: set col[" + col + "] to " + idx);
+	});
+	for (var i=0; i < data_vals.length; ++i)
+	{
+		var id = data_vals[i][cols.id];
+		if (id == "")
+		{
+			break;
+		}
+		if (!apply(data_vals[i], cols))
+		{
+			// returning false from the apply() func means they want to bail out
+			return false;
+		}
+	}
+	return true;
+}
+
 
 function markCompleted ()
 {
@@ -281,7 +309,67 @@ function markCompleted ()
 		return;
 	}
 
-	updateItem({ id: id, completed: l.today() });
+	var obj = getObject(id);
+	if (obj.list == "Project")						// projects never close
+	{
+		l.showError("Projects are never completed (by definition).");
+		return;
+	}
+	else if (obj.list == "Job")						// jobs can only close if all their tasks are completed
+	{
+		l.progress("Looking for outstanding tasks for job " + obj.code);
+		// if visitFilteredRows makes it without bailing out early, that means there's no further tasks for this job
+		var no_more_tasks = visitFilteredRows("Tasks", function (row, cols)
+		{
+			var code = row[cols.code];
+			if (code == obj.code)
+			{
+				return false;
+			}
+			return true;
+		});
+		l.progress("Done");
+		if (!no_more_tasks)
+		{
+			l.showError("Job cannot be completed (tasks are still outstanding!).");
+			return;
+		}
+	}
+	// job tasks or project blocks with a set priority need special handling:
+	// we have to find any lower-priority tasks/blocks in the same job/project and bump their priorities
+	else if ((obj.list == "Task" || obj.list == "Block") && obj.code != "" && obj.priority != "")
+	{
+		// the tasks and blocks tabs have only non-completed items, which is almost exactly the subset we need
+		var plural = obj.list + 's';
+		l.progress("Looking for lower priority " + plural + " for job " + obj.code);
+		visitFilteredRows(plural, function (row, cols)
+		{
+			var id   = row[cols.id];
+			var code = row[cols.code];
+			var pri  = row[cols.priority];
+			l.debug(5, "markCompleted: row isa " + l.ref(row) + ", "
+					+ "cols are: code[" + cols.code + "], pri[" + cols.pri + "]");
+			l.debug(4, "markCompleted: comparing " + code + " to " + obj.code + " and " + pri + " to " + obj.priority);
+			// look for the same code and the same priority, but *not* the same item!
+			if (code == obj.code && pri == obj.priority && id != obj.id)
+			{
+				// we have more items at this same priority; don't bump anything
+				l.progress("Remaining " + plural + " at this priority level; bailing");
+				return false;
+			}
+			if (code == obj.code && pri > obj.priority)
+			{
+				var new_pri = incPriority(pri, -1, { max_letter: 26, max_num: 9 });
+				l.progress("Bumping " + obj.list + " " + id + ": " + pri + " => " + new_pri);
+				updateItem({ id: id, priority: new_pri });
+			}
+			return true;
+		});
+		obj.priority = "";
+		l.progress("Done");
+	}
+	obj.completed = l.today();
+	updateItem(obj);
 }
 
 function markCancelled ()
