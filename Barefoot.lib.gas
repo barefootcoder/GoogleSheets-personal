@@ -363,6 +363,32 @@ function getIndexesOfHiddenColumns (tab)
 	return hiddenColumns;
 }
 
+function deleteAllHiddenColumns (tab)
+{
+	// Handle default, since GAS JS is too old to do it in the signature.
+	if (tab == undefined)
+	{
+		tab = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+	}
+
+	var cols = getIndexesOfHiddenColumns(tab);
+	each(cols.reverse(), function (value)
+	{
+		tab.deleteColumn(value);
+	});
+}
+
+function deleteHiddenColumnsOnAllTabs ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	each(me.getSheets(), function (tab)
+	{
+		progress("Shrinking sheet: " + tab.getName())
+		deleteAllHiddenColumns(tab);
+	});
+	progress("Done");
+}
+
 
 function getDataSlice (tab, opts)
 {
