@@ -162,11 +162,16 @@ function getCurrentRow ()
 }
 
 
-function newItem (object)
+function newItem (object, tabname)
 {
+	// Handle defaults, since GAS JS is too old to do it in the signature.
+	if ( tabname == undefined )
+	{
+		tabname = "RawData";
+	}
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
 	var headers = l.tabHeaders(tab);
-	var new_row = l.getFirstEmptyRow("RawData", "Description");
+	var new_row = l.getFirstEmptyRow(tabname, "Description");
 	if (new_row == undefined)
 	{
 		l.showError("can't find an empty row for a new item");
@@ -694,6 +699,95 @@ function addRecurring ()
 }
 
 
+function newTVSeason ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("TVRawData");
+
+	var show = l.prompt("NEW TV SHOW", "Show to add:");
+	if (show == undefined)
+	{
+		return;
+	}
+	var network = l.prompt("NEW TV SHOW", "Network (required):");
+	var code;
+	if (network == undefined)
+	{
+		return;
+	}
+	else
+	{
+		var code_table = me.getRange("TVCodeLookup").getValues();
+		l.debug(3, "newTVSeason: code_table isa " + l.ref(code_table));
+		l.debug(3, "newTVSeason: read " + code_table.length + " rows");
+		var row =
+			l.grep(code_table, function (row)
+			{
+				l.debug(4, "newTVSeason: checking row [" + row[0] + "][" + row[1] + "]");
+				return row[0] == network;
+			});
+		if (row == undefined)
+		{
+			l.showError("Network " + network + " not recognized (check TV code on ControlData tab).");
+			return;
+		}
+		code = row[1];
+		l.debug(2, "newTVSeason: got code " + code);
+	}
+	var context = l.prompt("NEW TV SHOW", "Watching with (required):");
+	if (context == undefined)
+	{
+		return;
+	}
+	var season = l.int(l.prompt("NEW TV SHOW", "Season # (required):"));
+	if (season == undefined)
+	{
+		return;
+	}
+	var num_episodes = l.int(l.prompt("NEW TV SHOW", "# episodes this season (required):"));
+	if (num_episodes == undefined)
+	{
+		return;
+	}
+	var start = l.int(l.prompt("NEW TV SHOW", "Start with episode? (default: 1)"));
+	if (start == undefined)
+	{
+		start = 1;
+	}
+	if (start > num_episodes)
+	{
+		l.showError("Start episode must be smaller than number of episodes.");
+		return;
+	}
+
+	var descr = show + " [S" + season + "]";
+	var obj = { list: "Season", context: context, added: l.today(), code: code, description: descr };
+	newItem(obj, "TVRawData");
+	var pri = "A1";
+	for (var i=start; i <= num_episodes; ++i)
+	{
+		if (i < 0)
+		{
+			descr = show + " [S" + (season - 1) + "E" + (num_episodes + i + 1) + "]";
+		}
+		else if (i > 0)
+		{
+			descr = show + " [S" + season + "E" + i + "]";
+		}
+		else
+		{
+			descr = undefined;
+		}
+		if (descr != undefined)
+		{
+			obj = { priority: pri, list: "Show", context: context, added: l.today(), code: code, description: descr };
+			newItem(obj, "TVRawData");
+			pri = incPriority(pri, 1, { max_num: 9 });
+		}
+	}
+}
+
+
 /*
  ********************
  *		Tasks		*
@@ -1020,6 +1114,8 @@ function onOpen ()
 		.addSubMenu(ui.createMenu("More New Stuff")
 				.addItem("New Task for Today", "newTaskToday")
 				.addItem("Record Completed Task", "newTaskCompleted")
+				.addItem("New TV Season", "newTVSeason")
+				.addSeparator()
 				.addItem("Copy Completed Item", "splitItem")
 				.addItem("New Task [old/non-working]", "newTask")
 			)
