@@ -63,7 +63,7 @@ function getID (range)
 function getRowForObject (id)
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getSheetByName("RawData");
+	var tab = me.getSheetByName( id.charAt(0) == "T" ? "TVRawData" : "RawData" );
 	// cheating a bit by assuming ID is always in column 1 (and no frozen cols)
 	// but this is also a performance enhancement, so I'll allow it
 	var ids = l.getDataSlice(tab, { col: 1, as: "values" });
@@ -342,7 +342,7 @@ function markCompleted ()
 	}
 	// job tasks or project blocks with a set priority need special handling:
 	// we have to find any lower-priority tasks/blocks in the same job/project and bump their priorities
-	else if ((obj.list == "Task" || obj.list == "Block") && obj.code != "" && obj.priority != "")
+	else if ((obj.list == "Task" || obj.list == "Block" || obj.list == "Show") && obj.code != "" && obj.priority != "")
 	{
 		// the tasks and blocks tabs have only non-completed items, which is almost exactly the subset we need
 		var plural = obj.list + 's';
@@ -1081,7 +1081,7 @@ function jumpToBottom (tabname)
 	}
 
 	var row;
-	if (tabname == "RawData")
+	if (tabname == "RawData" || tabname == "TVRawData")
 	{
 		row = l.getFirstEmptyRow(tabname, "Description");
 	}
