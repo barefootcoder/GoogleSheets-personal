@@ -76,23 +76,33 @@ function splitLine ()
 	l.debug(2, "splitLine: splitting line at row " + rownum);
 	var row = tab.getRange(rownum, 1, 1, tab.getMaxColumns());
 	tab.insertRowsAfter(rownum, num_splits - 1);
+	var amt_col   = l.getColumnOfHeader(tab, "Amount");
+	var split_col = l.getColumnOfHeader(tab, "Split");
+	if (amt_col == undefined || split_col == undefined)
+	{
+		l.showError("Can't locate Amount and/or Split column(s)!");
+		return;
+	}
 	for (var i=num_splits; i > 0; --i)
 	{
 		l.debug(3, "splitLine: new row at pos " + (rownum + i - 1));
 		var new_row = tab.getRange(rownum + i - 1, 1, 1, tab.getMaxColumns());
-		var amount = new_row.getCell(1, 2);
+		var amount = new_row.getCell(1, amt_col);
 		if (i == 1)
 		{
-			amount.setFormulaR1C1("=" + amount.getValue() + "-SUM(R[1]C[0]:R[" + (num_splits - 1) + "]C[0])");
+			amount.setFormula("=vlookup($A" + rownum + ",Checking!$A:$F,4,0)" +
+					"-sum(offset(B" + rownum + ",1,0,G" + (rownum + 1) + ",1))");
 		}
 		else
 		{
 			row.copyTo(new_row);
+			row.copyTo(new_row, SpreadsheetApp.CopyPasteType.PASTE_CONDITIONAL_FORMATTING);
 			amount.clear();
 		}
 		var descr = new_row.getCell(1, 3);
 		descr.setValue(descr.getValue() + " [" + i + "]");
 	}
+	row.getCell(1, split_col).setValue(num_splits);
 }
 
 
