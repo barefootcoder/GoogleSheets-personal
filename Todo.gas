@@ -63,7 +63,8 @@ function getID (range)
 function getRowForObject (id)
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getSheetByName( id.charAt(0) == "T" ? "TVRawData" : "RawData" );
+	l.debug(3, "getRowForObject: id isa " + l.ref(id));
+	var tab = me.getSheetByName( typeof(id) == "string" && id.charAt(0) == "T" ? "TVRawData" : "RawData" );
 	// cheating a bit by assuming ID is always in column 1 (and no frozen cols)
 	// but this is also a performance enhancement, so I'll allow it
 	var ids = l.getDataSlice(tab, { col: 1, as: "values" });
