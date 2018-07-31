@@ -686,6 +686,10 @@ function addRecurring ()
 
 	if (num_items)
 	{
+		// clear Xs on Recurring tab before reporting success
+		// that way, timing out won't leave stray Xs lying around
+		l.getDataSlice(tab, { col: 1, after_headers: true, as: 'range' }).clearContent();
+
 		l.infoMsg("Added " + num_items + " new tasks.");
 		var rdata = me.getSheetByName("RawData");
 		rdata.getRange(dest_row, 1, num_items, rdata.getMaxColumns()).activate();
@@ -695,8 +699,6 @@ function addRecurring ()
 		tab.activate();
 		l.showError("No recurring tasks selected to add.");
 	}
-
-	l.getDataSlice(tab, { col: 1, after_headers: true, as: 'range' }).clearContent();
 }
 
 
