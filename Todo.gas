@@ -1086,6 +1086,17 @@ function saveToHistory ()
  ************************
  */
 
+function showIDofCurrentRow ()
+{
+	var id = getIDofCurrentRow();
+	if (id != undefined)
+	{
+		var ui = SpreadsheetApp.getUi();
+		ui.alert("INFO", "ID of current row: " + id, ui.ButtonSet.OK);
+	}
+}
+
+
 function resort ()
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -1181,7 +1192,8 @@ function onOpen ()
 				.addItem("Reduce Today by 1 Hour", "reduceTodayByOneHour")
 			)
 		.addSeparator()
-		.addItem("Resort",   "resort")
+		.addItem("Show Item ID", "showIDofCurrentRow")
+		.addItem("Resort", "resort")
 		.addItem("Find Blank Row", "jumpToBottom")
 		.addSeparator()
 		.addItem("Debug Tab", "l.debug_tab")
