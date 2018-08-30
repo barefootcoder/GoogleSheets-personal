@@ -230,7 +230,11 @@ function copyItem (obj)
 	return newItem(obj);												// turn obj values into real item
 }
 
-function splitItem ()
+function duplicateItem ()
+{
+	splitItem(false);
+}
+function splitItem (close_out)
 {
 	var id = getIDofCurrentRow();
 	if (id == undefined)
@@ -240,10 +244,14 @@ function splitItem ()
 
 	var obj = getObject(id);
 	l.debug(2, "splitItem: object with keys: " + l.keys(obj).join(","));
-	// Figure out if this item needs to be closed out.  Obviously we have to do
-	// this _before_ we blank out the completed date for the new copy.
-	// If it already has a completed date, don't close it out.
-	var close_out = obj.completed ? false : true;
+	// If the user didn't demand one way or the other, figure out if this item
+	// needs to be closed out.  Obviously we have to do this _before_ we blank
+	// out the completed date for the new copy.  If it already has a completed
+	// date, don't close it out.
+	if (close_out == undefined)
+	{
+		close_out = obj.completed ? false : true;
+	}
 	// We'll use this object (which is just a copy of the values) to create a
 	// new object, with *most* of the same values.
 	delete obj.completed;		// this may be blank already, but certainly _should_ be
@@ -1119,7 +1127,7 @@ function onOpen ()
 				.addItem("Record Completed Task", "newTaskCompleted")
 				.addItem("New TV Season", "newTVSeason")
 				.addSeparator()
-				.addItem("Copy Completed Item", "splitItem")
+				.addItem("Duplicate Item", "duplicateItem")
 				.addItem("New Task [old/non-working]", "newTask")
 			)
 		.addSeparator()
