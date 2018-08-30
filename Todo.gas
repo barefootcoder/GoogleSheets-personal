@@ -917,6 +917,35 @@ function newDay ()
 	saveDay();
 }
 
+function extendTodayByOneHour () { extendToday( 1) }
+function reduceTodayByOneHour () { extendToday(-1) }
+
+function extendToday (amount)
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var tabname = tab.getName();
+
+	if (tabname != "Today")
+	{
+		if (l.confirm("You're not on today's sheet; proceed anyway?"))
+		{
+			tab = me.getSheetByName("Today");
+			tab.activate();
+		}
+		else
+		{
+			return;
+		}
+	}
+
+	var D1 = me.getRange("D1");
+	var C4 = me.getRange("C4");
+	C4.setFormula("=D1+" + amount + "/24");
+	D1.setValue(C4.getValue());
+	C4.clearContent();
+}
+
 
 function saveDay ()
 {
@@ -1147,6 +1176,9 @@ function onOpen ()
 		.addSubMenu(ui.createMenu("More Transitions")
 				.addItem("(Re)Save Day to Diary", "saveDay")
 				.addItem("Save CalenDiary's Earliest Month to History", "saveToHistory")
+				.addSeparator()
+				.addItem("Extend Today by 1 Hour", "extendTodayByOneHour")
+				.addItem("Reduce Today by 1 Hour", "reduceTodayByOneHour")
 			)
 		.addSeparator()
 		.addItem("Resort",   "resort")
