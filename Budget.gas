@@ -96,8 +96,7 @@ function splitLine ()
 		else
 		{
 			row.copyTo(new_row);
-			row.copyTo(new_row, SpreadsheetApp.CopyPasteType.PASTE_CONDITIONAL_FORMATTING);
-			amount.clear();
+			amount.clearContent();
 		}
 		var descr = new_row.getCell(1, 3);
 		descr.setValue(descr.getValue() + " [" + i + "]");
