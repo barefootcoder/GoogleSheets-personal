@@ -483,8 +483,7 @@ function tweakPriority (amount)
 	{
 		var date = l.dateFromCell(cell);
 		l.debug(3, "tweakPriority: got date from cell: " + date.toString());
-		l.addDays(date, amount);
-		l.dateIntoCell(date, cell);
+		l.dateIntoCell(l.addDays(date, amount), cell);
 	}
 	else
 	{

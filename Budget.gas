@@ -234,32 +234,37 @@ function familyPaychecks ()
 		while (control.amt > 0 && num_pre + num_post > 0)
 		{
 			var amount;
-			var next_paycheck = l.nextDoW(last_date, control.bday_dow);
+			var next_paycheck = l.nextDoW(l.addDays(last_date, 1), control.bday_dow);
 			var bank_row = l.getFirstEmptyRow(person + "Bank").offset(0,0, 1,4);
 			var id = "P" + ('0000' + (last_id + 1)).substr(-4);
 			var descr = "Paycheck (" + l.dateAsString(next_paycheck) + ")";
+			var debug_tag = "check for " + person + "[" + l.dateAsString(last_date) + "]-- ";
 			if (num_pre > 0)
 			{
 				amount = control.amt;
 				--num_pre;
 				++last_id;
+				debug_tag = "pre-birthday " + debug_tag;
 			}
 			else if (control.bday > last_date && control.bday <= next_paycheck)
 			{
 				amount = 25 * control.amt;
 				next_paycheck = control.bday;
-				var year = next_paycheck.year();
+				var year = next_paycheck.getFullYear();
 				id = "D" + year;
 				descr = "Birthday Bonus (" + year + ")";
+				debug_tag = "birthday " + debug_tag;
 			}
 			else if (num_post > 0)
 			{
 				amount = control.amt + 1;
 				--num_post;
 				++last_id;
+				debug_tag = "post-birthday " + debug_tag;
 			}
+			l.debug(2, "familyPaychecks: adding " + debug_tag + amount + " on " + l.dateAsString(next_paycheck));
 			bank_row.setValues([[ id, descr, next_paycheck, amount ]]);
-			last_date = l.addDays(next_paycheck, 1);
+			last_date = next_paycheck;
 		}
 	});
 }

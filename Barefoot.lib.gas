@@ -128,8 +128,10 @@ function today (opts)
 
 function addDays (date, days)
 {
-	date.setDate(date.getDate() + days);
-	return date;
+	// I think `setDate` is a mutator, so we need to make a copy.
+	var d = new Date(date);
+	d.setDate(date.getDate() + days);
+	return d;
 }
 
 function nextDoW (date, dow)
@@ -140,7 +142,7 @@ function nextDoW (date, dow)
 	{
 		dow = 7;
 	}
-	debug(3, "pushItemArbitrary: getDay => " + date.getDay() + " offset => " + ((dow + 7 - date.getDay()) % 7));
+	debug(3, "nextDoW: getDay => " + date.getDay() + " offset => " + ((dow + 7 - date.getDay()) % 7));
 	date.setDate( date.getDate() + ((dow + 7 - date.getDay()) % 7) );
 	return date;
 }
