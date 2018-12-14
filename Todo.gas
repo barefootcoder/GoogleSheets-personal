@@ -8,7 +8,7 @@
 // Doesn't really need the object, but takes one just to be consistent with `data_keys`.
 function ro_keys (obj)
 {
-	return ["id", "pri", "list_order"];
+	return [ "id", "pri", "list_order", "project_job", "a0_cnt","a1_cnt","a2_cnt","a3_cnt", ];
 }
 
 // Return a list of the keys in an object that _can_ be changed.  Essentially the
