@@ -61,28 +61,71 @@ function makeNewTransRows()
 
 function splitLine ()
 {
-	// use double ~ to force it to be an integer
-	var num_splits = ~~l.prompt("SPLIT ITEM", "How many line items to split into?");
-	if (num_splits == undefined)
-	{
-		return;
-	}
-
 	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var ui = SpreadsheetApp.getUi();
 	var tab = me.getActiveSheet();
 	var pos = me.getActiveCell();
-
 	var rownum = pos.getRow();
 	l.debug(2, "splitLine: splitting line at row " + rownum);
-	var row = tab.getRange(rownum, 1, 1, tab.getMaxColumns());
-	tab.insertRowsAfter(rownum, num_splits - 1);
-	var amt_col   = l.getColumnOfHeader(tab, "Amount");
-	var split_col = l.getColumnOfHeader(tab, "Split");
-	if (amt_col == undefined || split_col == undefined)
+
+	var amt_col     = l.getColumnOfHeader(tab, "Amount");
+	var descr_col   = l.getColumnOfHeader(tab, "What");
+	var split_col   = l.getColumnOfHeader(tab, "Split");
+	if (amt_col == undefined || descr_col == undefined || split_col == undefined)
 	{
-		l.showError("Can't locate Amount and/or Split column(s)!");
+		l.showError("Can't locate Amount and/or What and/or Split column(s)!");
 		return;
 	}
+
+	var row = tab.getRange(rownum, 1, 1, tab.getMaxColumns());
+	var split_total = me.getRange("LineItemSplitTotal").getValue();
+	var line_total  = row.getCell(1, amt_col).getValue();
+	if (line_total != -split_total)
+	{
+		l.showError("ReceiptSplitter is not set for line item total of " + -line_total);
+		return;
+	}
+
+	var num_splits = me.getRange("LineItemSplitInto").getValue();
+	l.debug(2, "splitLine: splitting " + split_total + " into " + num_splits + " lines");
+	var split_amts = [ undefined ];					// make our array 1-based by ignoring the 0th element
+	var split_amt_range = me.getRange("LineItemSplitAmounts").getValues();
+	l.debug(4, "splitLine: range is " + l.ref(split_amt_range) + " of " + l.ref(split_amt_range[0]) + "'s"
+			+ " of " + l.ref(split_amt_range[0][0]) + "'s");
+	for (var i=0; i < num_splits; ++i)
+	{
+		split_amts.push(split_amt_range[i][0]);
+	}
+
+	var summary = "Using data from the ReceiptSplitter tab, we will split the total of " + line_total
+			+ " into " + num_splits + " lines, with the following amounts:\n" + split_amts.join("\n")
+			+ "\n\nProceed with automatic data fill-in?  (Say <NO> to enter manual mode.)";
+	var result = ui.alert(summary, ui.ButtonSet.YES_NO_CANCEL);
+	var mode;
+	if (result == ui.Button.CANCEL)
+	{
+		me.toast("Abandoning at user request.", "Split Line Item", 3);
+		return;
+	}
+	else
+	{
+		mode = result == ui.Button.YES ? "auto" : "manual";
+		me.toast("Splitting in " + mode + " mode.", "Split Line Item");
+	}
+
+	if (mode == "manual")
+	{
+		// use double ~ to force it to be an integer
+		num_splits = ~~l.prompt("SPLIT LINE ITEM", "How many line items to split into?");
+		if (num_splits == undefined)
+		{
+			me.toast("Cannot proceed without number of splits.", "Split Line Item", 3);
+			return;
+		}
+	}
+
+	l.progress("Splitting ...");
+	tab.insertRowsAfter(rownum, num_splits - 1);
 	for (var i=num_splits; i > 0; --i)
 	{
 		l.debug(3, "splitLine: new row at pos " + (rownum + i - 1));
@@ -90,18 +133,35 @@ function splitLine ()
 		var amount = new_row.getCell(1, amt_col);
 		if (i == 1)
 		{
-			amount.setFormula("=vlookup($A" + rownum + ",Checking!$A:$F,4,0)" +
-					"-sum(offset(B" + rownum + ",1,0,G" + (rownum + 1) + ",1))");
+			row.getCell(1, split_col).setValue(num_splits);
+			amount.setFormula("=round(vlookup($A" + rownum + ",Checking!$A:$F,4,0)" +
+					"-sum(offset(B" + rownum + ",1,0,G" + (rownum + 1) + ",1)),2)");
+			if (mode == "auto")
+			{
+				var calculated = amount.getValue();
+				if (calculated != split_amts[1])
+				{
+					l.showError("Remainder amount doesn't match ReceiptSplitter tab! ["
+							+ calculated + " vs " + split_amts[1] + "]");
+				}
+			}
 		}
 		else
 		{
 			row.copyTo(new_row);
-			amount.clearContent();
+			if (mode == "auto")
+			{
+				amount.setValue(split_amts[i]);
+			}
+			else
+			{
+				amount.clearContent();
+			}
 		}
 		var descr = new_row.getCell(1, 3);
 		descr.setValue(descr.getValue() + " [" + i + "]");
 	}
-	row.getCell(1, split_col).setValue(num_splits);
+	l.progress("Done");
 }
 
 
