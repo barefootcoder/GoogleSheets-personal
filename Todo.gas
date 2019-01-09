@@ -841,6 +841,40 @@ function newTaskToday (mark_completed)
 
 function newTaskCompleted () { newTaskToday(true) }
 
+function newWorkTask ()
+{
+	var descr = l.prompt("NEW TASK", "Task to add:");
+	if (descr == undefined)
+	{
+		return;
+	}
+	var code = l.prompt("NEW TASK", "Code (required):");
+	if (code == undefined)
+	{
+		return;
+	}
+	else
+	{
+		// Verify this is a work code.
+		if (code.length == 5 || code.length == 3 && code.charAt(0) == 'W')
+		{
+			// all good
+		}
+		else
+		{
+			l.showError("Code " + code + " does not appear to be a work code.");
+			return;
+		}
+	}
+	var priority = l.prompt("NEW TASK", "Priority (default: A1):");
+	if (priority == undefined)
+	{
+		priority = 'A1';
+	}
+	var obj = { list: "Task", context: "Work", added: l.today(), code: code, priority: priority, description: descr };
+	newItem(obj);
+}
+
 
 function newTask ()
 {
@@ -1163,6 +1197,7 @@ function onOpen ()
 		.addItem("Add Recurring Tasks", "addRecurring")
 		.addSubMenu(ui.createMenu("More New Stuff")
 				.addItem("New Task for Today", "newTaskToday")
+				.addItem("New Work Task", "newWorkTask")
 				.addItem("Record Completed Task", "newTaskCompleted")
 				.addItem("New TV Season", "newTVSeason")
 				.addSeparator()
