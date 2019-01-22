@@ -470,12 +470,37 @@ function incPriority (base, inc, opts)
 
 function tweakPriority (amount)
 {
-	var item = getCurrentRow();
-	if (item == undefined)
+	var item;
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var selection = me.getActiveRange();
+	selHeight = selection.getHeight();
+	if (selHeight > 1)
 	{
-		return;
+		for (var i=selHeight; i >= 1; --i)
+		{
+			var id = getID(selection.getCell(i,1));
+			if (id != undefined)
+			{
+				item = getRowForObject(id);
+				if (item != undefined)
+				{
+					tweakPriorityOfItem(item, amount);
+				}
+			}
+		}
 	}
+	else
+	{
+		item = getCurrentRow();
+		if (item != undefined)
+		{
+			tweakPriorityOfItem(item, amount);
+		}
+	}
+}
 
+function tweakPriorityOfItem (item, amount)
+{
 	var due_col = dataHeaderColumn("due");
 	var cell = item.getCell(1, due_col);
 	var value = cell.getValue();
