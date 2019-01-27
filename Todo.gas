@@ -642,95 +642,61 @@ function emptyInTray ()
 function addRecurring ()
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getActiveSheet();
-	var tabname = tab.getName();
+	var to_add = me.getSheetByName("RecurringToAdd");
+	// to_add.activate();
 
-	if (tabname != "Recurring")
+	var num_items = to_add.getRange("B4").getValue();
+	if (num_items == 0)
 	{
-		if (l.confirm("You're not on the recurring sheet; proceed anyway?"))
-		{
-			tab = me.getSheetByName("Recurring");
-			tab.activate();
-		}
-		else
+		l.showError("No recurring tasks marked.");
+		return;
+	}
+	else
+	{
+		if (!l.confirm("Going to add " + num_items + " tasks; proceed?"))
 		{
 			return;
 		}
 	}
 
-	var num_items = 0;
-	var descr_col = l.getColumnOfHeader(tab, "Description");
+	var start_row = to_add.getRange("C7").getValue();
+	var start_col = to_add.getRange("C8").getValue();
+	var num_rows  = to_add.getRange("C9").getValue();
+	var num_cols  = to_add.getRange("C10").getValue();
+	var toCopy    = to_add.getRange(start_row, start_col, num_rows, num_cols);
+	l.debug(2, "addRecurring: copying " + toCopy.getHeight() + " rows and " + toCopy.getWidth() + " columns");
+
+	var data = me.getSheetByName("RawData");
 	var dest_row = jumpToBottom("RawData").getRow();
-	var which_rows = l.getDataSlice(tab, { col: 1, as: 'values' });
-	l.debug(3, "addRecurring: which_rows isa " + l.ref(which_rows));
-	l.each(which_rows, function (value, idx)
+	var first_data_col = l.getColumnOfHeader(data, "Priority");
+	toCopy.copyValuesToRange(data, first_data_col, first_data_col + num_cols - 1, dest_row, dest_row + num_rows - 1);
+
+	// tweak index of alternating tasks
+	var recur       = me.getSheetByName("Recurring");
+	var descr_col   = l.getColumnOfHeader(recur, "Description");
+	var altern_col  = l.getColumnOfHeader(recur, "alternations");
+	var altern_list = l.getDataSlice(recur, { col: altern_col, after_headers: true, as: 'values' });
+	l.each(altern_list, function (value)
 	{
-		var row = idx + 1;		// convert from 0-origin to 1-origin
-		if (value == "X")
+		value = value[0];
+		if (value)
 		{
-			var src_row = l.getDataSlice(tab, { row: row, after_headers: true, as: "range" });
-			var template = rowIntoObject( src_row );
-			// set due date based on a few different formats
-			var due = template.due;
-			if ( /^[+-]?\d+$/.test(due) )
-			{
-				template.due = l.dateAsString(l.addDays(l.today({ as: 'date' }), due));
-			}
-			else if ( /^\d{1,2}[a-z]{2}$/.test(due) )
-			{
-				var day = due.substr(0,due.length-2);
-				var due = new Date();
-				due.setDate(day);
-				// let's assume that we always want dates in _next_ month
-				due.setMonth( due.getMonth() + 1 );
-				template.due = l.dateAsString(due);
-			}
-			else if ( due == "" )
-			{
-				template.due = "";
-			}
-			else
-			{
-				l.showError("can't figure out recurring due date format: " + due);
-				return;
-			}
-			// handle any potential alternating tasks
-			if ( new RegExp('//').test(template.description) )			// *definitely* nicer-looking than `/\/\//.test`
-			{
-				var parts = template.description.split('//');
-				var which = l.int( parts.pop() );
-				template.description = parts[which-1];
-				// update the source so next time we get the next part
-				var next = which == parts.length ? 1 : which + 1;
-				parts.push( next );
-				src_row.getCell(1, descr_col).setValue( parts.join('//') );
-			}
-			copyItem(template);
-			++num_items;
-		}
-		else if (value != "")
-		{
-			l.showError("Illegal check value in row " + row + ": " + value);
-			// non-fatal error, so just keep going
+			var cell = recur.getRange(value, descr_col);
+			var parts = cell.getValue().split('//');
+			var which = l.int( parts.pop() );
+			// update the source so next time we get the next alternation
+			var next = which == parts.length ? 1 : which + 1;
+			parts.push( next );
+			cell.setValue( parts.join('//') );
 		}
 	});
-	l.debug(2, "addRecurring: found " + num_items + " items");
 
-	if (num_items)
-	{
-		// clear Xs on Recurring tab before reporting success
-		// that way, timing out won't leave stray Xs lying around
-		l.getDataSlice(tab, { col: 1, after_headers: true, as: 'range' }).clearContent();
+	// clear Xs on Recurring tab before reporting success
+	// that way, timing out won't leave stray Xs lying around
+	l.getDataSlice(recur, { col: 1, after_headers: true, as: 'range' }).clearContent();
 
-		l.infoMsg("Added " + num_items + " new tasks.");
-		var rdata = me.getSheetByName("RawData");
-		rdata.getRange(dest_row, 1, num_items, rdata.getMaxColumns()).activate();
-	}
-	else
-	{
-		tab.activate();
-		l.showError("No recurring tasks selected to add.");
-	}
+	l.infoMsg("Added " + num_items + " new tasks.");
+	data.getRange(dest_row, 1, num_items, data.getMaxColumns()).activate();
 }
 
 
