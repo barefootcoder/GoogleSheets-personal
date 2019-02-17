@@ -691,9 +691,10 @@ function addRecurring ()
 		}
 	});
 
-	// clear Xs on Recurring tab before reporting success
+	// clear stuff on Recurring tab before reporting success
 	// that way, timing out won't leave stray Xs lying around
 	l.getDataSlice(recur, { col: 1, after_headers: true, as: 'range' }).clearContent();
+	l.getDataSlice(recur, { col: 2, after_headers: true, as: 'range' }).clearContent();
 
 	l.infoMsg("Added " + num_items + " new tasks.");
 	data.getRange(dest_row, 1, num_items, data.getMaxColumns()).activate();
