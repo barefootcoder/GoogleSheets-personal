@@ -288,7 +288,6 @@ function jumpToItem ()
 
 function visitFilteredRows (tabName, apply)
 {
-	// the tasks tab has only non-completed tasks, which is almost exactly the subset we need
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
 	var data_vals = tab.getDataRange().getValues();
 	var cols = {};
@@ -333,7 +332,7 @@ function markCompleted ()
 	{
 		l.progress("Looking for outstanding tasks for job " + obj.code);
 		// if visitFilteredRows makes it without bailing out early, that means there's no further tasks for this job
-		var no_more_tasks = visitFilteredRows("Tasks", function (row, cols)
+		var no_more_tasks = visitFilteredRows("JobItems", function (row, cols)
 		{
 			var code = row[cols.code];
 			if (code == obj.code)
@@ -351,10 +350,10 @@ function markCompleted ()
 	}
 	// job tasks or project blocks with a set priority need special handling:
 	// we have to find any lower-priority tasks/blocks in the same job/project and bump their priorities
-	else if ((obj.list == "Task" || obj.list == "Block" || obj.list == "Show") && obj.code != "" && obj.priority != "")
+	else if ( obj.code != "" && obj.priority != "" )
 	{
-		// the tasks and blocks tabs have only non-completed items, which is almost exactly the subset we need
-		var plural = obj.list + 's';
+		// these tabs have only non-completed items, which is almost exactly the subset we need
+		var plural = obj.list == "Show" ? "Shows" : obj.code.length == 3 ? "Blocks" : "JobItems";
 		l.progress("Looking for lower priority " + plural + " for job " + obj.code);
 		visitFilteredRows(plural, function (row, cols)
 		{
@@ -865,40 +864,6 @@ function newWorkTask ()
 	}
 	var obj = { list: "Task", context: "Work", added: l.today(), code: code, priority: priority, description: descr };
 	newItem(obj);
-}
-
-
-function newTask ()
-{
-	l.showError("This function doesn't work any more.");
-	return;
-
-	var taskname = l.prompt("NEW TASK", "Name of task:");
-	if (taskname == undefined)
-	{
-		return;
-	}
-	var priority = l.prompt("NEW TASK", "Priority for new task:");
-	if (priority == undefined)
-	{
-		return;
-	}
-
-	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Tasks");
-	var data = tab.activate().getDataRange().getValues();
-	for (var i=0; i < data.length; ++i)
-	{
-		if (data[i][0] == "")
-		{
-			l.debug(2, "newTask: found blank row " + row);
-			tab.getRange(i + 1, 1).setValues([priority, taskname]);
-			resort();
-			return;
-		}
-	}
-	/* no blank row found; make one */
-	tab.appendRow([priority, taskname]);
-	resort();
 }
 
 
