@@ -314,15 +314,8 @@ function visitFilteredRows (tabName, apply)
 }
 
 
-function markCompleted ()
+function completeItem (obj)
 {
-	var id = getIDofCurrentRow();
-	if (id == undefined)
-	{
-		return;
-	}
-
-	var obj = getObject(id);
 	if (obj.list == "Project")						// projects never close
 	{
 		l.showError("Projects are never completed (by definition).");
@@ -360,9 +353,9 @@ function markCompleted ()
 			var id   = row[cols.id];
 			var code = row[cols.code];
 			var pri  = row[cols.priority];
-			l.debug(5, "markCompleted: row isa " + l.ref(row) + ", "
+			l.debug(5, "completeItem: row isa " + l.ref(row) + ", "
 					+ "cols are: code[" + cols.code + "], pri[" + cols.pri + "]");
-			l.debug(4, "markCompleted: comparing " + code + " to " + obj.code + " and " + pri + " to " + obj.priority);
+			l.debug(4, "completeItem: comparing " + code + " to " + obj.code + " and " + pri + " to " + obj.priority);
 			// look for the same code and the same priority, but *not* the same item!
 			if (code == obj.code && pri == obj.priority && id != obj.id)
 			{
@@ -382,6 +375,37 @@ function markCompleted ()
 		l.progress("Done");
 	}
 	obj.completed = l.today();
+}
+
+function markCompleted ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+
+	var obj = getObject(id);
+	completeItem(obj);
+	updateItem(obj);
+}
+
+function markCompletedWithNote ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+	var note = l.prompt("MARK COMPLETED", "Completion note:");
+	if (note == undefined)
+	{
+		return;
+	}
+
+	var obj = getObject(id);
+	completeItem(obj);
+	obj.description = obj.description + ' {' + note + '}';
 	updateItem(obj);
 }
 
@@ -399,8 +423,10 @@ function markCancelled ()
 	}
 
 	var obj = getObject(id);
-	var descr = obj.description + ' {' + reason + '}';
-	updateItem({ id: id, list: 'Cancelled', completed: l.today(), description: descr });
+	completeItem(obj);
+	obj.description = obj.description + ' {' + reason + '}';
+	obj.list = 'Cancelled';
+	updateItem(obj);
 }
 
 function setDueDate (new_val)
@@ -1167,6 +1193,7 @@ function onOpen ()
 				.addItem("Bump Item", "bumpItem")
 				.addItem("Push Item (Any Amount)", "pushItemArbitrary")
 				.addSeparator()
+				.addItem("Mark Completed (with Note)", "markCompletedWithNote")
 				.addItem("Split Open Item", "splitItem")
 				.addItem("Cancel Item", "markCancelled")
 			)
