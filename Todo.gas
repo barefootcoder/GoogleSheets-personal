@@ -314,8 +314,23 @@ function visitFilteredRows (tabName, apply)
 }
 
 
-function completeItem (obj)
+function completeItem (obj, when)
 {
+	l.debug(5, "completeItem: firing up");
+
+	// Handle defaults, since GAS JS is too old to do it in the signature.
+	var date_type = l.ref(when);
+	l.debug(4, "completeItem: treating date as " + date_type);
+	if ( date_type == "undefined" )
+	{
+		when = l.today();
+	}
+	else if ( date_type == "Date" )
+	{
+		when = l.dateAsString(when);
+	}
+	l.debug(3, "completeItem: marking complete as of " + when);
+
 	if (obj.list == "Project")						// projects never close
 	{
 		l.showError("Projects are never completed (by definition).");
@@ -374,7 +389,7 @@ function completeItem (obj)
 		obj.priority = "";
 		l.progress("Done");
 	}
-	obj.completed = l.today();
+	obj.completed = when;
 }
 
 function markCompleted ()
@@ -387,6 +402,21 @@ function markCompleted ()
 
 	var obj = getObject(id);
 	completeItem(obj);
+	updateItem(obj);
+}
+
+function markCompletedAsOfYesterday ()
+{
+	l.debug(5, "markCompletedAsOfYesterday: firing up");
+
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+
+	var obj = getObject(id);
+	completeItem(obj, l.addDays(l.today({ as: 'date' }), -1));
 	updateItem(obj);
 }
 
@@ -1194,6 +1224,7 @@ function onOpen ()
 				.addItem("Push Item (Any Amount)", "pushItemArbitrary")
 				.addSeparator()
 				.addItem("Mark Completed (with Note)", "markCompletedWithNote")
+				.addItem("Mark Completed as of Yesterday", "markCompletedAsOfYesterday")
 				.addItem("Split Open Item", "splitItem")
 				.addItem("Cancel Item", "markCancelled")
 			)
