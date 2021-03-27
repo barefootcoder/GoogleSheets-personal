@@ -64,20 +64,11 @@ function getRowForObject (id)
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	l.debug(3, "getRowForObject: id isa " + l.ref(id));
-	var tab = me.getSheetByName( typeof(id) == "string" && id.charAt(0) == "T" ? "TVRawData" : "RawData" );
-	// cheating a bit by assuming ID is always in column 1 (and no frozen cols)
-	// but this is also a performance enhancement, so I'll allow it
-	var ids = l.getDataSlice(tab, { col: 1, as: "values" });
-	for (var i=0, len=ids.length; i < len; ++i)
-	{
-		if (ids[i][0] == id)
-		{
-			// go from 0-origin to 1-origin
-			// and account for header rows, which getDataColumn() throws away
-			return l.getDataSlice(tab, { row: i + 1, after_headers: true, as: "range" });
-		}
-	}
-	return;											// undefined if not found
+	var id_lookup = me.getRange("ItemIdLookup");
+	id_lookup.getCell(1, 1).setValue(id);
+	l.debug(4, "getRowForObject: looking up ID " + id_lookup.getCell(1, 1).getValue());
+	var tab = me.getSheetByName( id_lookup.getCell(2, 1).getValue() );
+	return tab == undefined ? undefined : l.getDataSlice(tab, { row: id_lookup.getCell(2, 2).getValue(), as: "range" });
 }
 
 function getObject (id)
@@ -210,16 +201,28 @@ function updateItem (object)
 		l.showError("Illegal ID " + id + " (which should be impossible).");
 		return;
 	}
+	var data = row.getSheet();
+	// Probably should calculate the first and last column names somehow, but let's just call this a
+	// performance enhancement, shall we?
+	var first_col = l.getColumnOfHeader(data, "Priority");
+	var last_col  = l.getColumnOfHeader(data, "Description");
+	// For `first_col`, have to subract 1 to convert 1-origin columns to 0-origin indices.
+	// For `last_col`, the second arg to `slice` means "up to but not including" the indicated
+	// element, so it's really `last_col - 1 + 1`.
+	var data_to_update = row.getValues()[0].slice( first_col - 1, last_col );
 
-	l.foreach(data_keys(object), function (key)
+	// NOTE! This loop assumes that `data_keys` will always return keys in the same order they exist
+	// in the RawData tab.  Be careful mucking about with that function, or you'll break this one.
+	l.foreach(data_keys(object), function (key, idx)
 	{
-		l.debug(4, "updateItem: updating key: " + key + " which has value: " + object[key]);
-		if (dataSet(row, key, object[key]) == undefined)
-		{
-			// error should have been shown by dataSet()
-			return;
-		}
+		data_to_update[ dataHeaderColumn(key) - first_col ] = object[key];
 	});
+	l.debug(4, "updateItem: possibly updated data is: " + data_to_update.join(",")
+			+ " (length " + data_to_update.length + ")");
+
+	// Ranges are always two-dimensional, even when they're one-dimensional.  Therefore, we have to
+	// put our array inside another array for `setValues`'s sake.
+	data.getRange(row.getRow(), first_col, 1, last_col - first_col + 1).setValues( [data_to_update] );
 }
 
 function copyItem (obj)
