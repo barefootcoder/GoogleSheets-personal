@@ -30,6 +30,7 @@ var difference = _.difference;
 var keys       = _.keys;
 var values     = _.values;
 var pairs      = _.pairs;
+var zip        = _.object;
 
 // functions
 var memoize    = _.memoize;
@@ -277,6 +278,73 @@ function debug_tab ()
 
 	var ui = SpreadsheetApp.getUi();
 	ui.alert("DEBUG", msg, ui.ButtonSet.OK);
+}
+
+
+
+/*
+ ************************
+ *	Formula Tweaking	*
+ ************************
+ */
+
+	/*	Rewrite the formula in the current cell to take advantage of "shortcuts."
+	 *	Current shortcuts recognized:
+	 *		*	table-cell
+	 *				find a cell in a table by row and column names
+	 *				before: =vlookup( ""="table-cell(DefinedTable, a1, 'Foo'" )
+	 *				after:  =vlookup( A1, $C$1:$F$12, match("Foo", $C$1:$F:1, 0), ""="table-cell c1:f12, a1, 'Foo'" )
+	 */
+function rewriteFormula ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var cell = tab.getCurrentCell();
+	var formula = cell.getFormula();
+	var replacements = 0;
+	let match;
+	for (match of formula.matchAll( /[vh]lookup\(.*?="(([a-z][\w-]*)\s+(.*?))"\)/gi ))
+	{
+		let to_replace = match[0];
+		let rewrite_fn = match[1];
+		let func = match[2];
+		let args = match[3].split(',').map( s => s.trim() ).map( s => s.replace( /'/g, `"`) );
+		if (func === "table-cell")
+		{
+			let [table, column, row] = args;
+			table = table.toUpperCase();								// this simplifies some stuff down the road
+			// the below is equivalent to:
+			// my ($start_col, $start_row, $end_col, $end_row) = $table =~ /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/;
+			// the empty comma is because a Javascript `match` returns `$0` in addition to `$1` &c
+			// so that part is more like: my (undef, $start_col, $start_row, $end_col, $end_row) = ...
+			var [ , start_col, start_row, end_col, end_row] = table.match( /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/ );
+			if (typeof(start_col) == "undefined")
+			{
+				showError(`customizeFormula[table]: require literal cell boundaries for table [${table}]`);
+				return;
+			}
+			if (to_replace.startsWith("v"))								// headers are along the top
+			{
+				let header_row = '$' + start_col + '$' + start_row + ':$' + end_col + '$' + start_row;
+				let table      = '$' + start_col + '$' + start_row + ':$' + end_col + '$' + end_row;
+				let rewritten  = `vlookup(${row}, ${table}, match(${column}, ${header_row}, 0), ""="${rewrite_fn}")`;
+				formula = formula.replace(to_replace, rewritten);
+				++replacements;
+			}
+			else														// headers are down the left
+			{
+				showError(`customizeFormula[table]: hlookup version not yet implemented`);
+				return;
+			}
+		}
+		else
+		{
+			showError(`customizeFormula: unrecognized rewrite function [${func}]`);
+			return;
+		}
+	}
+	cell.setFormula( formula );
+	me.toast(replacements == 0 ? "No rewrite functions found!" : `Replaced ${replacements} rewrite functions.`);
 }
 
 
