@@ -62,12 +62,14 @@ function ref(obj)
 {
 	if (obj)
 	{
-		if (obj.constructor && obj.constructor.name)
+		if (obj.constructor && obj.constructor.name && obj.constructor.name != 'Object')
 		{
+			Logger.log(`ref: returning based on constructor name [${obj.constructor.name}]`);
 			return obj.constructor.name;
 		}
 		else if (typeof obj == 'object') // might be a Google built-in class
 		{
+			Logger.log(`ref: returning based on stringification [${typeof(obj)} => ${obj.toString()}]`);
 			return obj.toString();
 		}
 	}
@@ -76,6 +78,7 @@ function ref(obj)
 		return "undefined";
 	}
 
+	Logger.log(`ref: giving up`);
 	return undefined;
 }
 
