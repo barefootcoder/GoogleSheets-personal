@@ -266,7 +266,13 @@ function splitItem (close_out)
 	// close out the existing object if necessary
 	if (close_out)
 	{
-		updateItem({ id: id, completed: l.today() });
+		// Either the priority was already nothing, in which case this won't
+		// change it, or it was something, in which case calling `completeItem`
+		// would have cleared it.  Calling `completeItem` would also do a lot
+		// of extra work in case there were no other items with the same
+		// priority ... but, in this case, we *know* there's at least one other
+		// such item, because we just created it.  So we're shortcutting a bit.
+		updateItem({ id: id, priority: "", completed: l.today() });
 	}
 	// finally, let the user edit the new item if they want to
 	row.activate();
@@ -317,22 +323,9 @@ function visitFilteredRows (tabName, apply)
 }
 
 
-function completeItem (obj, when)
+function completeItem (obj)
 {
 	l.debug(5, "completeItem: firing up");
-
-	// Handle defaults, since GAS JS is too old to do it in the signature.
-	var date_type = l.ref(when);
-	l.debug(4, "completeItem: treating date as " + date_type);
-	if ( date_type == "undefined" )
-	{
-		when = l.today();
-	}
-	else if ( date_type == "Date" )
-	{
-		when = l.dateAsString(when);
-	}
-	l.debug(3, "completeItem: marking complete as of " + when);
 
 	if (obj.list == "Project")						// projects never close
 	{
@@ -361,51 +354,118 @@ function completeItem (obj, when)
 	}
 	// job tasks or project blocks with a set priority need special handling:
 	// we have to find any lower-priority tasks/blocks in the same job/project and bump their priorities
-	else if ( obj.code != "" && obj.priority != "" )
+	else if ( obj.priority != "" )
 	{
-		// these tabs have only non-completed items, which is almost exactly the subset we need
-		var plural = obj.list == "Show" ? "Shows" : obj.code.length == 3 ? "Blocks" : "JobItems";
-		l.progress("Looking for lower priority " + plural + " for job " + obj.code);
-		visitFilteredRows(plural, function (row, cols)
+		var code = obj.job;
+		if (code == undefined)
 		{
-			var id   = row[cols.id];
-			var code = row[cols.code];
-			var pri  = row[cols.priority];
-			l.debug(5, "completeItem: row isa " + l.ref(row) + ", "
-					+ "cols are: code[" + cols.code + "], pri[" + cols.pri + "]");
-			l.debug(4, "completeItem: comparing " + code + " to " + obj.code + " and " + pri + " to " + obj.priority);
-			// look for the same code and the same priority, but *not* the same item!
-			if (code == obj.code && pri == obj.priority && id != obj.id)
-			{
-				// we have more items at this same priority; don't bump anything
-				l.progress("Remaining " + plural + " at this priority level; bailing");
-				return false;
-			}
-			if (code == obj.code && pri > obj.priority)
-			{
-				var new_pri = incPriority(pri, -1, { max_letter: 26, max_num: 9 });
-				l.progress("Bumping " + obj.list + " " + id + ": " + pri + " => " + new_pri);
-				updateItem({ id: id, priority: new_pri });
-			}
+			code = obj.project;
+		}
+		if (code == undefined)
+		{
 			return true;
+		}
+
+		l.progress("Popping priority stack (if necessary) for " + obj.code);
+		var comptab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("CompletedStackItem");
+		var control = l.getDataSlice(comptab , { row: 1, as: 'range' });
+		l.debug(4, "completeItem: control isa " + l.ref(control) + ", control values isa " + l.ref(control.getValues()));
+		var rows_at, code_at, id_at, newpri_at;
+		l.foreach(l.flatten(control.getValues()), function (_, idx)
+		{
+			var col = idx + 1;											// indices are 0-based, cols are 1-based
+			l.debug(4, "completeItem: control cell at " + idx + " isa " + l.ref(_) + " is " + _);
+			switch (_)
+			{
+				case "rows":
+					l.debug(5, "completeItem: setting location of num rows");
+					rows_at = col - 1;
+					break;
+				case "Code:":
+					l.debug(5, "completeItem: setting column for code");
+					code_at = col + 1;
+					control.getCell(1, code_at).setValue(code);
+					break;
+				case "Completed Task:":
+					l.debug(5, "completeItem: setting column for ID");
+					id_at = col + 1;
+					control.getCell(1, id_at).setValue(obj.id);
+					break;
+				case "New Pri:":
+					l.debug(5, "completeItem: setting column for new priority");
+					newpri_at = col + 1;
+					break;
+			}
 		});
-		obj.priority = "";
+		if (rows_at == undefined || newpri_at == undefined)
+		{
+			l.showError("Can't figure out where number of items and/or new priority is.");
+			return;
+		}
+		var rows = control.getCell(1, rows_at).getValue();
+		if (rows < 1)
+		{
+			l.showError("No items to adjust!");
+			return;
+		}
+		var newpri = control.getCell(1, newpri_at).getValue();
+
+		var changed_col   = l.getColumnOfHeader(comptab, "Changed");
+		var priority_col  = l.getColumnOfHeader(comptab, "Priority");
+		var completed_col = l.getColumnOfHeader(comptab, "Completed");
+		var ids           =      l.getDataSlice(comptab, { col: 1,             after_headers: true, as: 'values' });
+		var changed       =      l.getDataSlice(comptab, { col: changed_col,   after_headers: true, as: 'values' });
+		var priorities    =      l.getDataSlice(comptab, { col: priority_col,  after_headers: true, as: 'values' });
+		var completeds    =      l.getDataSlice(comptab, { col: completed_col, after_headers: true, as: 'values' });
+		l.progress("Updating " + rows + " items");
+		var col = new Object();
+		var first_row = comptab.getFrozenRows() + 1;
+		l.foreach(ids, function (_, idx)
+		{
+			var id = _[0];
+			var update = changed[idx][0];
+			l.debug(4, "completeItem: for ID " + id + " changed is " + update + " (and isa " + l.ref(update) + ")");
+			if (update)
+			{
+				var obj = getObject(id);
+				var new_pri   = priorities[idx][0]
+				var new_compl = completeds[idx][0]
+				l.progress("Updating " + id + ": " + obj.priority + " => " + new_pri);
+				obj.priority = new_pri;
+				obj.completed = new_compl;
+				updateItem(obj);
+			}
+		});
+
+		l.debug(4, "going to clear 1," + id_at + " and 1," + code_at);
+		control.getCell(1, id_at).clearContent();
+		control.getCell(1, code_at).clearContent();
 		l.progress("Done");
+		obj.priority = newpri;
 	}
-	obj.completed = when;
+	return true;
 }
 
 function markCompleted ()
 {
+	l.debug(5, "markCompleted: firing up");
 	var id = getIDofCurrentRow();
+	l.debug(3, "markCompleted: got ID [" + id + "]");
 	if (id == undefined)
 	{
 		return;
 	}
 
 	var obj = getObject(id);
-	completeItem(obj);
-	updateItem(obj);
+	if (completeItem(obj) == undefined)
+	{
+		l.showError("Cannot mark item completed.");
+	}
+	else
+	{
+		obj.completed = l.today();
+		updateItem(obj);
+	}
 }
 
 function markCompletedAsOfYesterday ()
@@ -419,7 +479,8 @@ function markCompletedAsOfYesterday ()
 	}
 
 	var obj = getObject(id);
-	completeItem(obj, l.addDays(l.today({ as: 'date' }), -1));
+	completeItem(obj);
+	obj.completed = l.dateAsString( l.addDays(l.today({ as: 'date' }), -1) );
 	updateItem(obj);
 }
 
@@ -439,6 +500,7 @@ function markCompletedWithNote ()
 	var obj = getObject(id);
 	completeItem(obj);
 	obj.description = obj.description + ' {' + note + '}';
+	obj.completed = l.today();
 	updateItem(obj);
 }
 
