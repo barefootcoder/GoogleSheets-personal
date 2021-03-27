@@ -475,11 +475,15 @@ function getDataSlice (tab, opts)
 	var start_row, start_col, num_rows, num_cols;
 	if (typeof(opts["row"]) != "undefined")
 	{
+		debug(5, "getDataSlice: working to get row info");
 		var header_cols = tab.getFrozenColumns();
+		debug(4, "getDataSlice: got frozen cols [" + header_cols + "]");
 		start_row = opts["row"];
 		start_col = header_cols + 1;
 		num_rows  = 1;
+		debug(5, "getDataSlice: going to get max cols [" + header_cols + "]");
 		num_cols  = tab.getMaxColumns() - header_cols;
+		debug(4, "getDataSlice: got max cols [" + num_cols + "]");
 		if (opts["after_headers"])
 		{
 			start_row += tab.getFrozenRows();
@@ -487,6 +491,7 @@ function getDataSlice (tab, opts)
 	}
 	else if (typeof(opts["col"]) != "undefined")
 	{
+		debug(5, "getDataSlice: working to get col info");
 		var header_rows = tab.getFrozenRows();
 		start_row = header_rows + 1;
 		start_col = opts["col"];
@@ -503,7 +508,9 @@ function getDataSlice (tab, opts)
 		return;
 	}
 
+	debug(5, "getDataSlice: setting range");
 	var range = tab.getRange(start_row, start_col, num_rows, num_cols);
+	debug(5, "getDataSlice: range was set");
 	if ( typeof range == 'undefined' )
 	{
 		showError("Cannot find any values to slice: " + start_row + ", " + start_col);
@@ -512,10 +519,12 @@ function getDataSlice (tab, opts)
 
 	if (return_as == "range")
 	{
+		debug(4, "getDataSlice: returning range");
 		return range;
 	}
 	else if (return_as == "values")
 	{
+		debug(4, "getDataSlice: returning range values");
 		return range.getValues();
 	}
 	else

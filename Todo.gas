@@ -22,6 +22,7 @@ function data_keys (obj)
 
 function rowIntoObject (row)
 {
+	l.debug(5, "rowIntoObject: firing up");
 	var values = row.getValues()[0];
 	var obj = {};
 	for (var i=0, len=values.length; i < len; ++i)
@@ -1080,8 +1081,11 @@ function saveDay ()
 		l.debug(5, "saveDay: created new sheet");
 		day.setName(date);
 
+		l.debug(5, "saveDay: going to set due values");
 		var due_values = l.getDataBlock(tab, "#2", "#3").getValues();
+		l.debug(5, "saveDay: got due values");
 		l.getDataBlock(day, "#2", "#3").setValues(due_values);
+		l.debug(5, "saveDay: set due values");
 
 		// tweak column headers
 		var top_row = tab.getSheetValues(1, 1, 1, tab.getMaxColumns())[0];
@@ -1099,6 +1103,7 @@ function saveDay ()
 				day.getRange(1, i + 1).setValue("At End: " + top_row[i]);
 			}
 		}
+		l.debug(5, "saveDay: done tweaking headers");
 	}
 	else
 	{
@@ -1117,6 +1122,7 @@ function saveDay ()
 		// they just take up space and reduce the number of days we can have in the diary at a time
 		l.deleteAllHiddenColumns(day);
 	}
+	l.debug(5, "saveDay: done");
 }
 
 
