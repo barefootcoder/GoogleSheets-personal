@@ -1310,11 +1310,16 @@ function onOpen ()
 			)
 		.addItem("Find Blank Row", "jumpToBottom")
 		.addSeparator()
-		.addItem("Debug Tab", "l.debug_tab")
-		.addItem("Test", "testCurrentThing")
+		.addSubMenu(ui.createMenu("Developer Functions")
+				.addItem("Debug Tab", "l.debug_tab")
+				.addItem("Clear Tab Headers Cache", "l.tabHeadersClearCache")
+				.addItem("Test", "testCurrentThing")
+			)
 		.addToUi();
 }
 
 function testCurrentThing ()
 {
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
 }

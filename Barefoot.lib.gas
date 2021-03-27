@@ -537,7 +537,6 @@ function getDataBlock (tab, start_col, end_col)
 }
 
 
-var _tab_headers;
 function tabHeaders (tab)
 {
 	var tab_type = ref(tab);
@@ -553,10 +552,16 @@ function tabHeaders (tab)
 	else
 	{
 		showError("Don't know how to extract tabname from type " + tab_type);
+		return;
 	}
+	Logger.log(`tabHeaders: got tab of type ${tab_type}; tab is ${tabName}`);
 
+	var CACHE = CacheService.getDocumentCache();
+	var _tab_headers = JSON.parse(CACHE.get('tab-headers'));
+	Logger.log(`tabHeaders: got back from cache [${ typeof(_tab_headers) }]`);
 	if (_tab_headers == undefined)
 	{
+		Logger.log(`tabHeaders: making new _tab_headers object`);
 		_tab_headers = new Object();
 	}
 	if (_tab_headers[tabName] == undefined)
@@ -566,14 +571,25 @@ function tabHeaders (tab)
 			tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
 		}
 		var headers = tab.getSheetValues(tab.getFrozenRows(), 1, 1, tab.getMaxColumns());
+		Logger.log(`tabHeaders: set headers to ${headers[0]}`);
 		_tab_headers[tabName] = headers[0];
+		Logger.log(`tabHeaders: adding to cache ${ typeof(_tab_headers) }`);
+		CACHE.put('tab-headers', JSON.stringify(_tab_headers));
 	}
+	Logger.log(`tabHeaders: returning ${_tab_headers[tabName]}`);
 	return _tab_headers[tabName];
+}
+
+function tabHeadersClearCache ()
+{
+	var CACHE = CacheService.getDocumentCache();
+	CACHE.remove('tab-headers');
 }
 
 function getColumnOfHeader (tab, header)
 {
 	var headers = tabHeaders(tab);
+	Logger.log(`getColumnOfHeader: got headers [${headers}]`);
 	debug(3, "getColumnOfHeader: finding column " + header + " on tab "
 			+ (ref(tab) == "Sheet" ? 'sheet:' + tab.getName() : tab));
 	for (var i=0, len=headers.length; i < len; ++i)
