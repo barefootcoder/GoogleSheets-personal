@@ -8,16 +8,19 @@
 // Doesn't really need the object, but takes one just to be consistent with `data_keys`.
 function ro_keys (obj)
 {
-	return [ "id", "pri", "list_order", "project_job", "a0_ct","a1_ct","a2_ct","a3_ct", ];
+	return [ "id", ];
 }
 
 // Return a list of the keys in an object that _can_ be changed.  Essentially the
 // opposite of `ro_keys`.  Does use the object in this case.
 function data_keys (obj)
 {
-	l.debug(4, "data_keys: doing set difference: [" + l.keys(obj) + "] - [" + ro_keys() + "] == ["
-			+ l.difference(l.keys(obj), ro_keys(obj)) + "]");
-	return l.difference(l.keys(obj), ro_keys(obj));
+	var allkeys = l.keys(obj);
+	var filter_keys = ro_keys(obj);
+	filter_keys.push("");							// filter out any blank ones
+	var dkeys = l.difference(allkeys, filter_keys);
+	l.debug(4, "data_keys: doing set difference: [" + allkeys + "] - [" + filter_keys + "] == [" + dkeys + "]");
+	return dkeys;
 }
 
 function rowIntoObject (row)
@@ -84,9 +87,11 @@ function dataHeaderColumn (column)
 	if (data_headers == undefined)
 	{
 		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
+		Logger.log(`dataHeaderColumn: tab isa ${l.ref(tab)}`);
 		// using `.slice()` to make a copy of the array, else we'd update the original array
 		// oblig SO ref: https://stackoverflow.com/questions/7486085/copying-array-by-value-in-javascript
 		data_header_row = l.tabHeaders(tab).slice();
+		Logger.log(`dataHeaderColumn: row isa ${l.ref(data_header_row )}`);
 		data_headers = {};
 		for (var i=0, len=data_header_row.length; i < len; ++i)
 		{
@@ -163,7 +168,6 @@ function newItem (object, tabname)
 		tabname = "RawData";
 	}
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
-	var headers = l.tabHeaders(tab);
 	var new_row = l.getFirstEmptyRow(tabname, "Description");
 	if (new_row == undefined)
 	{
@@ -206,7 +210,7 @@ function updateItem (object)
 	// Probably should calculate the first and last column names somehow, but let's just call this a
 	// performance enhancement, shall we?
 	var first_col = l.getColumnOfHeader(data, "Priority");
-	var last_col  = l.getColumnOfHeader(data, "Description");
+	var last_col  = l.getColumnOfHeader(data, "Notes");
 	// For `first_col`, have to subract 1 to convert 1-origin columns to 0-origin indices.
 	// For `last_col`, the second arg to `slice` means "up to but not including" the indicated
 	// element, so it's really `last_col - 1 + 1`.
@@ -259,6 +263,7 @@ function splitItem (close_out)
 	// We'll use this object (which is just a copy of the values) to create a
 	// new object, with *most* of the same values.
 	delete obj.completed;		// this may be blank already, but certainly _should_ be
+	delete obj.notes;			// notes don't carry over to new items
 	var row = copyItem(obj);
 	if (row == undefined)
 	{
@@ -500,7 +505,7 @@ function markCompletedWithNote ()
 
 	var obj = getObject(id);
 	completeItem(obj);
-	obj.description = obj.description + ' {' + note + '}';
+	obj.notes = note;
 	obj.completed = l.today();
 	updateItem(obj);
 }
@@ -520,8 +525,9 @@ function markCancelled ()
 
 	var obj = getObject(id);
 	completeItem(obj);
-	obj.description = obj.description + ' {' + reason + '}';
+	obj.notes = reason;
 	obj.list = 'Cancelled';
+	obj.completed = l.today();
 	updateItem(obj);
 }
 
@@ -766,7 +772,8 @@ function addRecurring ()
 	var to_add = me.getSheetByName("RecurringToAdd");
 	// to_add.activate();
 
-	var num_items = to_add.getRange("B4").getValue();
+	var num_items = to_add.getRange("B6").getValue();
+	var num_jobs  = to_add.getRange("B16").getValue();
 	if (num_items == 0)
 	{
 		l.showError("No recurring tasks marked.");
@@ -774,23 +781,37 @@ function addRecurring ()
 	}
 	else
 	{
-		if (!l.confirm("Going to add " + num_items + " tasks; proceed?"))
+		if (!l.confirm("Going to add " + num_items + " tasks and " + num_jobs + " jobs; proceed?"))
 		{
 			return;
 		}
 	}
 
-	var start_row = to_add.getRange("C7").getValue();
-	var start_col = to_add.getRange("C8").getValue();
-	var num_rows  = to_add.getRange("C9").getValue();
-	var num_cols  = to_add.getRange("C10").getValue();
-	var toCopy    = to_add.getRange(start_row, start_col, num_rows, num_cols);
-	l.debug(2, "addRecurring: copying " + toCopy.getHeight() + " rows and " + toCopy.getWidth() + " columns");
+	var copyRanges =
+	[
+		{ howMany:num_items, rangeFrom: 9, copyTo:"RawData", startAt:"Priority" },
+		{ howMany:num_jobs,  rangeFrom:19, copyTo:"RawJobs", startAt:"Code"     },
+	];
+	l.foreach(copyRanges, function (_)
+	{
+		if (_.howMany > 0)
+		{
+			l.debug(4, "addRecurring: parsing " + l.keys(_));
+			var start_row = to_add.getRange(_.rangeFrom + 0, 3).getValue();
+			var start_col = to_add.getRange(_.rangeFrom + 1, 3).getValue();
+			var num_rows  = to_add.getRange(_.rangeFrom + 2, 3).getValue();
+			var num_cols  = to_add.getRange(_.rangeFrom + 3, 3).getValue();
+			l.debug(4, "addRecurring: parsed: " + start_row + "/" + start_col + ", " + num_rows + "x" + num_cols);
+			var toCopy    = to_add.getRange(start_row, start_col, num_rows, num_cols);
+			l.debug(2, "addRecurring: copying " + toCopy.getHeight() + " rows and " + toCopy.getWidth() + " columns");
 
-	var data = me.getSheetByName("RawData");
-	var dest_row = jumpToBottom("RawData").getRow();
-	var first_data_col = l.getColumnOfHeader(data, "Priority");
-	toCopy.copyValuesToRange(data, first_data_col, first_data_col + num_cols - 1, dest_row, dest_row + num_rows - 1);
+			l.debug(2, "addRecurring: copying to tab " + _.copyTo + " starting at " + _.startAt);
+			var data = me.getSheetByName(_.copyTo);
+			var dest_row = jumpToBottom(_.copyTo).getRow();
+			var first_data_col = l.getColumnOfHeader(data, _.startAt);
+			toCopy.copyValuesToRange(data, first_data_col, first_data_col + num_cols - 1, dest_row, dest_row + num_rows - 1);
+		}
+	});
 
 	// tweak index of alternating tasks
 	var recur       = me.getSheetByName("Recurring");
@@ -816,9 +837,9 @@ function addRecurring ()
 	// that way, timing out won't leave stray Xs lying around
 	l.getDataSlice(recur, { col: 1, after_headers: true, as: 'range' }).clearContent();
 	l.getDataSlice(recur, { col: 2, after_headers: true, as: 'range' }).clearContent();
+	l.getDataSlice(recur, { col: 3, after_headers: true, as: 'range' }).clearContent();
 
 	l.infoMsg("Added " + num_items + " new tasks.");
-	data.getRange(dest_row, 1, num_items, data.getMaxColumns()).activate();
 }
 
 
@@ -935,12 +956,8 @@ function newTaskToday (mark_completed)
 	{
 		return;
 	}
-	var code = l.prompt("NEW TASK", "Code (optional):");
-	if (code == undefined)
-	{
-		code = '';
-	}
-	var obj = { list: "Task", context: context, added: l.today(), code: code, description: descr };
+
+	var obj = { list: "Task", context: context, added: l.today(), description: descr };
 	if (mark_completed)
 	{
 		obj.completed = l.today();
@@ -949,6 +966,20 @@ function newTaskToday (mark_completed)
 	{
 		obj.due = l.today();
 	}
+
+	var code = l.prompt("NEW TASK", "Code (optional):");
+	if (code != undefined)
+	{
+		if (code.length == 3)
+		{
+			obj.project = code;
+		}
+		else
+		{
+			obj.job = code;
+		}
+	}
+
 	newItem(obj);
 }
 
@@ -1005,7 +1036,7 @@ function newDay ()
 
 	// save any potential changes to "yesterday"
 	// before we switch over to "tomorrow"
-	saveDay();
+	saveDayEnd();
 
 	var date = me.getRange("TodaysDate");
 	date.setValue( l.today() );
@@ -1015,114 +1046,118 @@ function newDay ()
 	l.debug(5, "newDay: going to find 'Today' header");
 	var col = l.getColumnOfHeader(templ, "Today");
 	l.debug(5, "newDay: pulling new schedule");
-	var values = l.getDataSlice(templ, { col: col, as: 'values' });
-	var schedule = l.getDataSlice(tab, { col: l.getColumnOfHeader(tab, "Schedule"), as: 'range' });
+	var values_first  = l.getDataSlice(templ, { col: col,     as: 'values' });
+	var values_second = l.getDataSlice(templ, { col: col + 1, as: 'values' });
+	var sched_first   = tab.getRange("ScheduleFirstHalf");
+	var sched_second  = tab.getRange("ScheduleSecondHalf");
 	l.debug(5, "newDay: finding old schedule");
-	l.debug(3, "newDay: going to get value at " + templ.getRange(2, 2).getA1Notation());
-	var start_time = templ.getRange(2, 2).getValue();
 	// cut schedule down to however many values we got back from the template
-	schedule = schedule.offset(0, 0, values.length);
-	schedule.setValues(values);
-	tab.getRange(1, 2).setValue(start_time);
+	sched_first = sched_first.offset(0, 0, values_first.length);
+	sched_first.setValues(values_first);
+	sched_second = sched_second.offset(0, 0, values_second.length);
+	sched_second.setValues(values_second);
 
 	// now that "tomorrow" is "today," save again
 	saveDay();
+
+	// leave the user in a place to update the day start
+	tab.getRange("InputDayStart").activate();
 }
 
-function extendTodayByOneHour () { extendToday( 1) }
-function reduceTodayByOneHour () { extendToday(-1) }
 
-function extendToday (amount)
+// get the CalenDiary sheet and return it as an object
+function _get_diary ()
 {
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getActiveSheet();
-	var tabname = tab.getName();
-
-	if (tabname != "Today")
-	{
-		if (l.confirm("You're not on today's sheet; proceed anyway?"))
-		{
-			tab = me.getSheetByName("Today");
-			tab.activate();
-		}
-		else
-		{
-			return;
-		}
-	}
-
-	var D1 = me.getRange("D1");
-	var C4 = me.getRange("C4");
-	C4.setFormula("=D1+" + amount + "/24");
-	D1.setValue(C4.getValue());
-	C4.clearContent();
+	// using hardcoded ID for diary sheet open
+	// less than ideal, but a PITA to do it any other way
+	return SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
 }
-
 
 function saveDay ()
 {
 	l.debug(5, "saveDay: firing up");
 	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getSheetByName("Today");
-	tab.activate();
+	var tab = me.getSheetByName("DiaryData");
 	var date = me.getRange("TodaysDateSortable").getValue();
 
-	// using hardcoded ID for diary sheet open
-	// less than ideal, but a PITA to do it any other way
 	l.debug(5, "saveDay: about to open diary");
-	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
+	var diary = _get_diary();
 	var day = diary.getSheetByName(date);
 	l.debug(2, "saveDay: trying to find sheet: " + date);
 	if (day == null)
 	{
-		// fresh copy
-		l.debug(5, "saveDay: fresh copy");
-		var day = tab.copyTo(diary);
-		l.debug(5, "saveDay: created new sheet");
+		// create tab in diary sheet
+		l.debug(5, "saveDay: making new tab");
+		var template = diary.getSheetByName("Template");
+		day = tab.copyTo(diary);
 		day.setName(date);
-
-		l.debug(5, "saveDay: going to set due values");
-		var due_values = l.getDataBlock(tab, "#2", "#3").getValues();
-		l.debug(5, "saveDay: got due values");
-		l.getDataBlock(day, "#2", "#3").setValues(due_values);
-		l.debug(5, "saveDay: set due values");
-
-		// tweak column headers
-		var top_row = tab.getSheetValues(1, 1, 1, tab.getMaxColumns())[0];
-		for (var i=0, len=top_row.length; i < len; ++i)
-		{
-			l.debug(4, "saveDay: at column " + (i + 1) + ", top row is " + top_row[i]);
-			if (top_row[i] == "Todo Today")
-			{
-				l.debug(4, "saveDay: resetting column header at 1," + (i + 1));
-				day.getRange(1, i + 1).setValue("At Start: " + top_row[i]);
-			}
-			else if (top_row[i] == "Completed Today")
-			{
-				l.debug(4, "saveDay: resetting column header at 1," + (i + 1));
-				day.getRange(1, i + 1).setValue("At End: " + top_row[i]);
-			}
-		}
-		l.debug(5, "saveDay: done tweaking headers");
+		l.debug(5, "saveDay: created new tab");
 	}
 	else
 	{
-		// recopy start/end hour and schedule data
-		l.debug(5, "saveDay: recopy left and right panes");
-		day.getRange("TodaysStartHour").setValue(tab.getRange("TodaysStartHour").getValue());
-		day.getRange("TodaysEndHour").setValue(tab.getRange("TodaysEndHour").getValue());
-		var schedule = l.getDataBlock(tab, "Schedule", "Schedule").getValues();
-		l.getDataBlock(day, "Schedule", "Schedule").setValues(schedule);
-
-		// copy completed tasks
-		var completed = l.getDataBlock(tab, "#3", "#END").getValues();
-		l.getDataBlock(day, "#3", "#END").setValues(completed);
-
-		// after final recopy, remove hidden columns
-		// they just take up space and reduce the number of days we can have in the diary at a time
-		l.deleteAllHiddenColumns(day);
+		if (!l.confirm("Will overwrite existing data!"))
+		{
+			return false;
+		}
 	}
+
+	l.debug(5, "saveDay: going to copy values");
+	var values = tab.getDataRange();
+	var rows = values.getNumRows();
+	var cols = values.getNumColumns();
+	if (day.getMaxColumns() < cols || day.getMaxRows() < rows)
+	{
+		l.showError(`Calendiary tab ${date} is too small; embiggen template tab?`);
+		return false;
+	}
+	day.getRange(1, 1, rows, cols).setValues(values.getValues());
+	l.debug(5, "saveDay: copied values");
+
 	l.debug(5, "saveDay: done");
+	return true;
+}
+
+function saveDayEnd ()
+{
+	l.debug(5, "saveDayEnd: firing up");
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("DiaryData");
+	var date = me.getRange("TodaysDateSortable").getValue();
+
+	l.debug(5, "saveDay: about to open diary");
+	var diary = _get_diary();
+	var day = diary.getSheetByName(date);
+	l.debug(2, "saveDay: trying to find sheet: " + date);
+	if (day == null)
+	{
+		// no tab means that the day _start_ hasn't been copied yet
+		// so we can't copy the day end
+		l.showError(`Cannot locate ${date} tab; try saving whole day first.`);
+		return false;
+	}
+
+	// find the End of Day marker and grab the data
+	l.debug(5, "saveDayEnd: picking out end data");
+	var last_col = tab.getLastColumn();									l.debug(4, `saveDayEnd: last_col = ${last_col}`);
+	var top_row  = tab.getRange(1, 1, 1, tab.getMaxColumns());
+	var end_col  = top_row.getValues()[0].indexOf("End of Day") + 1;	l.debug(4, `saveDayEnd: end_col = ${end_col}`);
+	var sch_rows = me.getRange("ScheduleFirstHalf").getNumRows();		// assume both halves are the same size
+	var num_rows = sch_rows + tab.getFrozenRows();						// don't forget to allow for the header!
+	var num_cols = last_col - end_col + 1;
+	l.debug(3, `saveDayEnd: End of Day data found at 1:${end_col} to ${num_rows}:${last_col}`);
+	var end_data = tab.getRange(1, end_col, num_rows, num_cols);
+
+	// end_col _should_ be the same on the diary tab, but don't assume
+	end_col  = day.getRange(1, 1, 1, tab.getMaxColumns()).getValues()[0].indexOf("End of Day") + 1;
+	if (day.getMaxColumns() < end_col + num_cols || day.getMaxRows() < num_rows)
+	{
+		l.showError(`Calendiary tab ${date} is too small; embiggen template tab?`);
+		return false;
+	}
+	l.debug(3, `saveDayEnd: saving data to ${date}! 1:${end_col} to ${num_rows}:${last_col}`);
+	day.getRange(1, end_col, num_rows, num_cols).setValues(end_data.getValues());
+
+	l.debug(5, "saveDayEnd: done");
 }
 
 
@@ -1304,10 +1339,8 @@ function onOpen ()
 		.addItem("Start a New Day", "newDay")
 		.addSubMenu(ui.createMenu("More Transitions")
 				.addItem("(Re)Save Day to Diary", "saveDay")
+				.addItem("Resave End of Day to Diary", "saveDayEnd")
 				.addItem("Save CalenDiary's Earliest Month to History", "saveToHistory")
-				.addSeparator()
-				.addItem("Extend Today by 1 Hour", "extendTodayByOneHour")
-				.addItem("Reduce Today by 1 Hour", "reduceTodayByOneHour")
 			)
 		.addSeparator()
 		.addSubMenu(ui.createMenu("More Utility Items")
