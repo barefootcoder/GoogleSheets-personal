@@ -11,7 +11,7 @@ function makeNewTransRows()
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getActiveSheet();
 	var tabname = tab.getName();
-	if (tabname == "Checking" || tabname == "Savings")
+	if ( /(Checking|Savings)$/.test(tabname) )
 	{
 		var num_rows = ~~l.prompt("NEW LEDGER ROWS", "How many rows do you need to add?");
 		var add_rows = function (tab)
@@ -65,8 +65,15 @@ function splitLine ()
 	var ui = SpreadsheetApp.getUi();
 	var tab = me.getActiveSheet();
 	var pos = me.getActiveCell();
+	var name = tab.getName();
 	var rownum = pos.getRow();
 	l.debug(2, "splitLine: splitting line at row " + rownum);
+	if (!name.match( /Categorization$/ ))
+	{
+		l.showError("Must be on a categorization tab to split line items");
+		return;
+	}
+	var ledger = name.replace("Categorization", "");
 
 	var amt_col     = l.getColumnOfHeader(tab, "Amount");
 	var descr_col   = l.getColumnOfHeader(tab, "What");
@@ -134,8 +141,8 @@ function splitLine ()
 		if (i == 1)
 		{
 			row.getCell(1, split_col).setValue(num_splits);
-			amount.setFormula("=round(vlookup($A" + rownum + ",Checking!$A:$F,4,0)" +
-					"-sum(offset(B" + rownum + ",1,0,G" + (rownum + 1) + ",1)),2)");
+			amount.setFormula(`=round(vlookup($A${rownum}, ${ledger}!$A:$F,4,0)` +
+					`-sum(offset(B${rownum}, 1, 0, G${rownum + 1}, 1)), 2)`);
 			if (mode == "auto")
 			{
 				var calculated = amount.getValue();
