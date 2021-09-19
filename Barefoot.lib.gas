@@ -255,10 +255,14 @@ function setDEBUG (level)
 	/*	Print a message to the screen, but only if DEBUG is on.
 	 *	@param	{string}		msg				message to print
 	 */
-function debug (level, msg)
+function debug (level, msg, obj)
 {
 	if (DEBUG >= level)
 	{
+		if (obj != undefined)
+		{
+			msg = msg + " " + JSON.stringify(obj, null, 4);
+		}
 		if (level == 1)
 		{
 			var ui = SpreadsheetApp.getUi();

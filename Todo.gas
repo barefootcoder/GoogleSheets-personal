@@ -1,4 +1,17 @@
 /*
+ *****************
+ * control funcs *
+ *****************
+ */
+
+// Read a JSON string out of A1 on the given tab and turn it into an object.
+function controlObjectForTab (tab)
+{
+	return JSON.parse( tab.getRange(1, 1).getValue() );
+}
+
+
+/*
  **********************
  * general item funcs *
  **********************
@@ -23,24 +36,67 @@ function data_keys (obj)
 	return dkeys;
 }
 
-function rowIntoObject (row)
+function rowIntoObject (row, headers)
 {
-	l.debug(5, "rowIntoObject: firing up");
+	l.debug(5, "rowIntoObject: firing up // headers", headers);
 	var values = row.getValues()[0];
 	var obj = {};
 	for (var i=0, len=values.length; i < len; ++i)
 	{
-		l.debug(4, "rowIntoObject: calling dataHeaderColumn(" + (i + 1) + ")");
-		var header = dataHeaderColumn(i + 1);
+		var header = headers[i];
 		if (header == undefined)
 		{
 			return;
 		}
-		obj[header] = values[i];
+		else if (header != "")
+		{
+			obj[header] = values[i];
+		}
 	}
 	return obj;
 }
 
+
+var data_headers;
+var data_header_row;
+function dataHeaderColumn (column)
+{
+	if (data_headers == undefined)
+	{
+		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
+		Logger.log(`dataHeaderColumn: tab isa ${l.ref(tab)}`);
+		// using `.slice()` to make a copy of the array, else we'd update the original array
+		// oblig SO ref: https://stackoverflow.com/questions/7486085/copying-array-by-value-in-javascript
+		data_header_row = l.tabHeaders(tab).slice();
+		Logger.log(`dataHeaderColumn: row isa ${l.ref(data_header_row )}`);
+		data_headers = {};
+		for (var i=0, len=data_header_row.length; i < len; ++i)
+		{
+			var header = data_header_row[i].toLowerCase();
+			data_header_row[i] = header;			// save LC version back to the array
+			data_headers[header] = i + 1;			// go from 0-origin to 1-origin
+		}
+	}
+
+	if (column == undefined)
+	{
+		// we were just called to make sure data_headers was set
+		return;
+	}
+	else if (typeof(column) == 'number' && column > 0 && column <= data_header_row.length)
+	{
+		return data_header_row[column - 1];
+	}
+	else if (typeof(column) == 'string' && data_headers.hasOwnProperty(column))
+	{
+		return data_headers[column];
+	}
+	else
+	{
+		l.showError("No such column in data: " + column);
+		return;
+	}
+}
 
 function getID (range)
 {
@@ -77,43 +133,8 @@ function getRowForObject (id)
 
 function getObject (id)
 {
-	return rowIntoObject(getRowForObject(id));
-}
-
-var data_headers;
-var data_header_row;
-function dataHeaderColumn (column)
-{
-	if (data_headers == undefined)
-	{
-		var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
-		Logger.log(`dataHeaderColumn: tab isa ${l.ref(tab)}`);
-		// using `.slice()` to make a copy of the array, else we'd update the original array
-		// oblig SO ref: https://stackoverflow.com/questions/7486085/copying-array-by-value-in-javascript
-		data_header_row = l.tabHeaders(tab).slice();
-		Logger.log(`dataHeaderColumn: row isa ${l.ref(data_header_row )}`);
-		data_headers = {};
-		for (var i=0, len=data_header_row.length; i < len; ++i)
-		{
-			var header = data_header_row[i].toLowerCase();
-			data_header_row[i] = header;			// save LC version back to the array
-			data_headers[header] = i + 1;			// go from 0-origin to 1-origin
-		}
-	}
-
-	if (typeof(column) == 'number' && column > 0 && column <= data_header_row.length)
-	{
-		return data_header_row[column - 1];
-	}
-	else if (typeof(column) == 'string' && data_headers.hasOwnProperty(column))
-	{
-		return data_headers[column];
-	}
-	else
-	{
-		l.showError("No such column in data: " + column);
-		return;
-	}
+	dataHeaderColumn();								// just ensure data_headers is loaded
+	return rowIntoObject(getRowForObject(id), data_header_row);
 }
 
 function dataSet (row, column, value)
@@ -301,6 +322,25 @@ function jumpToItem ()
 	row.activate();
 }
 
+function jumpToJob ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var pos = me.getActiveCell();
+	var code = pos.getValue();
+	if (String(code).length == 5)
+	{
+		var job_lookup = me.getRange("JobLookup");
+		job_lookup.getCell(1, 1).setValue(code);
+		var tab = me.getSheetByName("RawJobs");
+		l.getDataSlice(tab, { row: job_lookup.getCell(1, 2).getValue(), as: "range" }).activate();
+	}
+	else
+	{
+		l.showError(code + " does not look like a job code.");
+		return;
+	}
+}
+
 function visitFilteredRows (tabName, apply)
 {
 	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
@@ -333,128 +373,105 @@ function completeItem (obj)
 {
 	l.debug(5, "completeItem: firing up");
 
-	if (obj.list == "Project")						// projects never close
-	{
-		l.showError("Projects are never completed (by definition).");
-		return;
-	}
-	else if (obj.list == "Job")						// jobs can only close if all their tasks are completed
-	{
-		l.progress("Looking for outstanding tasks for job " + obj.code);
-		// if visitFilteredRows makes it without bailing out early, that means there's no further tasks for this job
-		var no_more_tasks = visitFilteredRows("JobItems", function (row, cols)
-		{
-			var code = row[cols.code];
-			if (code == obj.code)
-			{
-				return false;
-			}
-			return true;
-		});
-		l.progress("Done");
-		if (!no_more_tasks)
-		{
-			l.showError("Job cannot be completed (tasks are still outstanding!).");
-			return;
-		}
-	}
 	// job tasks or project blocks with a set priority need special handling:
 	// we have to find any lower-priority tasks/blocks in the same job/project and bump their priorities
-	else if ( obj.priority != "" )
+	if ( obj.priority != "" )
 	{
-		var code = obj.job;
-		if (code == undefined)
-		{
-			code = obj.project;
-		}
+		var code = obj.job ?? obj.project ?? obj.code;
 		if (code == undefined)
 		{
 			return true;
 		}
 
-		l.progress("Popping priority stack (if necessary) for " + obj.code);
+		l.progress("Popping priority stack (if necessary) for " + code);
 		var comptab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("CompletedStackItem");
-		var control = l.getDataSlice(comptab , { row: 1, as: 'range' });
-		l.debug(4, "completeItem: control isa " + l.ref(control) + ", control values isa " + l.ref(control.getValues()));
-		var rows_at, code_at, id_at, newpri_at;
-		l.foreach(l.flatten(control.getValues()), function (_, idx)
+		comptab.getRange(1, 2).setValue(obj.id);
+		var objs_to_update = controlObjectForTab( comptab );
+		l.debug(4, "completeItem: objects to update:", objs_to_update);
+		var ids = l.keys(objs_to_update); ids.sort;
+		var num_ids = ids.length;
+		l.debug(3, "completeItem: going to try to update " + num_ids + " items");
+		if (num_ids >= 1)
 		{
-			var col = idx + 1;											// indices are 0-based, cols are 1-based
-			l.debug(4, "completeItem: control cell at " + idx + " isa " + l.ref(_) + " is " + _);
-			switch (_)
+			l.progress("Updating " + num_ids + " items");
+			l.foreach(ids, function (_, idx)
 			{
-				case "rows":
-					l.debug(5, "completeItem: setting location of num rows");
-					rows_at = col - 1;
-					break;
-				case "Code:":
-					l.debug(5, "completeItem: setting column for code");
-					code_at = col + 1;
-					control.getCell(1, code_at).setValue(code);
-					break;
-				case "Completed Task:":
-					l.debug(5, "completeItem: setting column for ID");
-					id_at = col + 1;
-					control.getCell(1, id_at).setValue(obj.id);
-					break;
-				case "New Pri:":
-					l.debug(5, "completeItem: setting column for new priority");
-					newpri_at = col + 1;
-					break;
-			}
-		});
-		if (rows_at == undefined || newpri_at == undefined)
-		{
-			l.showError("Can't figure out where number of items and/or new priority is.");
-			return;
-		}
-		var rows = control.getCell(1, rows_at).getValue();
-		if (rows < 1)
-		{
-			l.showError("No items to adjust!");
-			return;
-		}
-		var newpri = control.getCell(1, newpri_at).getValue();
-
-		var changed_col   = l.getColumnOfHeader(comptab, "Changed");
-		var priority_col  = l.getColumnOfHeader(comptab, "Priority");
-		var completed_col = l.getColumnOfHeader(comptab, "Completed");
-		var ids           =      l.getDataSlice(comptab, { col: 1,             after_headers: true, as: 'values' });
-		var changed       =      l.getDataSlice(comptab, { col: changed_col,   after_headers: true, as: 'values' });
-		var priorities    =      l.getDataSlice(comptab, { col: priority_col,  after_headers: true, as: 'values' });
-		var completeds    =      l.getDataSlice(comptab, { col: completed_col, after_headers: true, as: 'values' });
-		l.progress("Updating " + rows + " items");
-		var col = new Object();
-		var first_row = comptab.getFrozenRows() + 1;
-		l.foreach(ids, function (_, idx)
-		{
-			var id = _[0];
-			var update = changed[idx][0];
-			l.debug(4, "completeItem: for ID " + id + " changed is " + update + " (and isa " + l.ref(update) + ")");
-			if (update)
-			{
-				var obj = getObject(id);
-				var new_pri   = priorities[idx][0]
-				var new_compl = completeds[idx][0]
-				l.progress("Updating " + id + ": " + obj.priority + " => " + new_pri);
+				var new_pri = objs_to_update[_];
+				l.debug(4, "completeItem: for ID " + _ + " update priority to " + new_pri);
+				var obj = getObject(_);
+				l.progress("Updating " + _ + ": " + obj.priority + " => " + new_pri);
 				obj.priority = new_pri;
-				obj.completed = new_compl;
 				updateItem(obj);
-			}
-		});
+			});
+		}
 
-		l.debug(4, "going to clear 1," + id_at + " and 1," + code_at);
-		control.getCell(1, id_at).clearContent();
-		control.getCell(1, code_at).clearContent();
+		// l.debug(4, "going to clear 1," + id_at);
+		// comptab.getRange(1, 2).clearContent();
 		l.progress("Done");
-		obj.priority = newpri;
+		obj.priority = "";
 	}
 	return true;
 }
 
-function markCompleted ()
+function markCompleted (asOf, withNote)
 {
 	l.debug(5, "markCompleted: firing up");
+	if (asOf == undefined)
+	{
+		asOf = l.today();
+	}
+
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+	var tabname = tab.getName();										l.debug(3, `markCompleted: cur tab = ${tabname}`);
+	if ( tabname == "RawProjects" )					// projects never close
+	{
+		l.showError("Projects are never completed (by definition).");
+		return;
+	}
+	else if ( tabname == "RawJobs" )				// jobs can only close if all their tasks are completed
+	{
+		if ( withNote != undefined )				// jobs don't have a notes field
+		{
+			l.showError("You can't add a note to a job.");
+			return;
+		}
+		var headers = l.tabHeaders(tab);
+		var row = l.getDataSlice(tab, { row: tab.getActiveCell().getRow(), as: "range" });
+		var job = rowIntoObject(row, headers);							l.debug(4, "markCompleted: job", job);
+		l.progress("Trying to complete job " + job.Code);
+		if (job.Total == 0)
+		{
+			row.getCell(1, headers.indexOf("Completed") + 1).setValue( asOf );
+		}
+		else
+		{
+			l.showError("Job cannot be completed (tasks are still outstanding!).");
+		}
+		l.progress("Done");
+		return;
+	}
+	else if ( tabname == "TVSeasons" )				// similarly, seasons can only close if all their shows are completed
+	{
+		var headers = l.tabHeaders(tab);
+		var row = l.getDataSlice(tab, { row: tab.getActiveCell().getRow(), as: "range" });
+		var season = rowIntoObject(row, headers);						l.debug(4, "markCompleted: season", season);
+		l.progress("Trying to complete season " + season.Code);
+		if (season.OpenShows == 0)
+		{
+			row.getCell(1, headers.indexOf("Completed") + 1).setValue( asOf );
+			if (withNote != undefined)
+			{
+				row.getCell(1, headers.indexOf("Notes") + 1).setValue( withNote );
+			}
+		}
+		else
+		{
+			l.showError("Season cannot be completed (shows are still outstanding!).");
+		}
+		l.progress("Done");
+		return;
+	}
+
 	var id = getIDofCurrentRow();
 	l.debug(3, "markCompleted: got ID [" + id + "]");
 	if (id == undefined)
@@ -469,7 +486,11 @@ function markCompleted ()
 	}
 	else
 	{
-		obj.completed = l.today();
+		obj.completed = asOf;
+		if (withNote != undefined)
+		{
+			obj.notes = withNote;
+		}
 		updateItem(obj);
 	}
 }
@@ -477,37 +498,18 @@ function markCompleted ()
 function markCompletedAsOfYesterday ()
 {
 	l.debug(5, "markCompletedAsOfYesterday: firing up");
-
-	var id = getIDofCurrentRow();
-	if (id == undefined)
-	{
-		return;
-	}
-
-	var obj = getObject(id);
-	completeItem(obj);
-	obj.completed = l.dateAsString( l.addDays(l.today({ as: 'date' }), -1) );
-	updateItem(obj);
+	markCompleted( l.dateAsString( l.addDays(l.today({ as: 'date' }), -1) ) );
 }
 
 function markCompletedWithNote ()
 {
-	var id = getIDofCurrentRow();
-	if (id == undefined)
-	{
-		return;
-	}
 	var note = l.prompt("MARK COMPLETED", "Completion note:");
 	if (note == undefined)
 	{
 		return;
 	}
 
-	var obj = getObject(id);
-	completeItem(obj);
-	obj.notes = note;
-	obj.completed = l.today();
-	updateItem(obj);
+	markCompleted( undefined, note );
 }
 
 function markCancelled ()
@@ -846,89 +848,21 @@ function addRecurring ()
 function newTVSeason ()
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var tab = me.getSheetByName("TVRawData");
+	var tab = me.getSheetByName("NewTVSeason");
+	var control = controlObjectForTab( tab );
 
-	var show = l.prompt("NEW TV SHOW", "Show to add:");
-	if (show == undefined)
-	{
-		return;
-	}
-	var network = l.prompt("NEW TV SHOW", "Network (required):");
-	var code;
-	if (network == undefined)
-	{
-		return;
-	}
-	else
-	{
-		var code_table = me.getRange("TVCodeLookup").getValues();
-		l.debug(3, "newTVSeason: code_table isa " + l.ref(code_table));
-		l.debug(3, "newTVSeason: read " + code_table.length + " rows");
-		var row =
-			l.grep(code_table, function (row)
-			{
-				l.debug(4, "newTVSeason: checking row [" + row[0] + "][" + row[1] + "]");
-				return row[0] == network;
-			});
-		if (row == undefined)
-		{
-			l.showError("Network " + network + " not recognized (check TV code on ControlData tab).");
-			return;
-		}
-		code = row[1];
-		l.debug(2, "newTVSeason: got code " + code);
-	}
-	var context = l.prompt("NEW TV SHOW", "Watching with (required):");
-	if (context == undefined)
-	{
-		return;
-	}
-	var season = l.int(l.prompt("NEW TV SHOW", "Season # (required):"));
-	if (season == undefined)
-	{
-		return;
-	}
-	var num_episodes = l.int(l.prompt("NEW TV SHOW", "# episodes this season (required):"));
-	if (num_episodes == undefined)
-	{
-		return;
-	}
-	var start = l.int(l.prompt("NEW TV SHOW", "Start with episode? (default: 1)"));
-	if (start == undefined)
-	{
-		start = 1;
-	}
-	if (start > num_episodes)
-	{
-		l.showError("Start episode must be smaller than number of episodes.");
-		return;
-	}
+	var season_tab = me.getSheetByName("TVSeasons");
+	var data_tab   = me.getSheetByName("TVRawData");
 
-	var descr = show + " [S" + season + "]";
-	var obj = { list: "Season", context: context, added: l.today(), code: code, description: descr };
-	newItem(obj, "TVRawData");
-	var pri = "A1";
-	for (var i=start; i <= num_episodes; ++i)
-	{
-		if (i < 0)
-		{
-			descr = show + " [S" + (season - 1) + "E" + (num_episodes + i + 1) + "]";
-		}
-		else if (i > 0)
-		{
-			descr = show + " [S" + season + "E" + i + "]";
-		}
-		else
-		{
-			descr = undefined;
-		}
-		if (descr != undefined)
-		{
-			obj = { priority: pri, list: "Show", context: context, added: l.today(), code: code, description: descr };
-			newItem(obj, "TVRawData");
-			pri = incPriority(pri, 1, { max_num: 9 });
-		}
-	}
+	var season_data = tab.getRange(control.season_data);
+	season_data.copyValuesToRange(season_tab, 1, season_data.getWidth(),
+			control.season_row, control.season_row);
+
+	var show_data = tab.getRange(control.show_data);
+	show_data.copyValuesToRange(data_tab, 1, show_data.getWidth(),
+			control.tvdata_row, control.tvdata_row + show_data.getHeight() - 1);
+
+	tab.getRange(control.input_data).clearContent();
 }
 
 
@@ -1313,26 +1247,28 @@ function onOpen ()
 	ui.createMenu("Todo")
 		.addItem("New Task for Today", "newTaskToday")
 		.addItem("New Work Task", "newWorkTask")
-		.addItem("New Item and Jump to Edit", "newAndEdit")
 		.addItem("Add Recurring Tasks", "addRecurring")
 		.addSubMenu(ui.createMenu("More New Stuff")
 				.addItem("New InTray Item", "newInTray")
+				.addItem("New Item and Jump to Edit", "newAndEdit")
 				.addItem("Record Completed Task", "newTaskCompleted")
 				.addItem("New TV Season", "newTVSeason")
 				.addItem("Duplicate Item", "duplicateItem")
 			)
 		.addSeparator()
-		.addItem("Jump to Full Edit", "jumpToItem")
 		.addItem("Push Item (1 Day)", "pushItem")
+		.addItem("Push Item (Any Amount)", "pushItemArbitrary")
 		.addItem("Mark Completed", "markCompleted")
 		.addSubMenu(ui.createMenu("More Edits")
 				.addItem("Bump Item", "bumpItem")
-				.addItem("Push Item (Any Amount)", "pushItemArbitrary")
 				.addSeparator()
 				.addItem("Mark Completed (with Note)", "markCompletedWithNote")
 				.addItem("Mark Completed as of Yesterday", "markCompletedAsOfYesterday")
 				.addItem("Split Open Item", "splitItem")
 				.addItem("Cancel Item", "markCancelled")
+				.addSeparator()
+				.addItem("Jump to Full Edit", "jumpToItem")
+				.addItem("Jump to Job Edit", "jumpToJob")
 			)
 		.addSeparator()
 		.addItem("Empty InTray", "emptyInTray")
@@ -1343,13 +1279,13 @@ function onOpen ()
 				.addItem("Save CalenDiary's Earliest Month to History", "saveToHistory")
 			)
 		.addSeparator()
-		.addSubMenu(ui.createMenu("More Utility Items")
+		.addSubMenu(ui.createMenu("Utility Items")
+				.addItem("Find Blank Row", "jumpToBottom")
 				.addItem("Show Item ID", "showIDofCurrentRow")
 				.addItem("Resort", "resort")
 			)
-		.addItem("Find Blank Row", "jumpToBottom")
-		.addSeparator()
 		.addSubMenu(ui.createMenu("Developer Functions")
+				.addItem("Refresh Menu", "onOpen")
 				.addItem("Debug Tab", "l.debug_tab")
 				.addItem("Clear Tab Headers Cache", "l.tabHeadersClearCache")
 				.addItem("Test", "testCurrentThing")
