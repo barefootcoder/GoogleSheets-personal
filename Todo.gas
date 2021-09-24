@@ -927,6 +927,7 @@ function newWorkTask ()
 		return;
 	}
 	var code = l.prompt("NEW TASK", "Code (required):");
+	var proj, job;
 	if (code == undefined)
 	{
 		return;
@@ -934,9 +935,15 @@ function newWorkTask ()
 	else
 	{
 		// Verify this is a work code.
-		if (code.length == 5 || code.length == 3 && code.charAt(0) == 'W')
+		if (code.length == 5)
 		{
-			// all good
+			// code is a job code
+			job = code;
+		}
+		else if (code.length == 3 && code.charAt(0) == 'W')
+		{
+			// code is a valid work project
+			proj = code;
 		}
 		else
 		{
@@ -949,7 +956,15 @@ function newWorkTask ()
 	{
 		priority = 'A1';
 	}
-	var obj = { list: "Task", context: "Work", added: l.today(), code: code, priority: priority, description: descr };
+	var obj = { list: "Task", context: "Work", added: l.today(), priority: priority, description: descr };
+	if (proj == undefined)
+	{
+		obj.job = job;
+	}
+	else
+	{
+		obj.project = proj;
+	}
 	newItem(obj);
 }
 
@@ -974,22 +989,17 @@ function newDay ()
 
 	var date = me.getRange("TodaysDate");
 	date.setValue( l.today() );
-
-	l.debug(5, "newDay: going to pull template tab");
-	var templ = me.getSheetByName("DayTemplates");
-	l.debug(5, "newDay: going to find 'Today' header");
-	var col = l.getColumnOfHeader(templ, "Today");
-	l.debug(5, "newDay: pulling new schedule");
+																		l.debug(5, "newDay: going to pull template tab");
+	var templ = me.getSheetByName("DayTemplates");						l.debug(5, "newDay: going to find 'Today' header");
+	var col = l.getColumnOfHeader(templ, "Today");						l.debug(5, "newDay: pulling new schedule");
 	var values_first  = l.getDataSlice(templ, { col: col,     as: 'values' });
 	var values_second = l.getDataSlice(templ, { col: col + 1, as: 'values' });
 	var sched_first   = tab.getRange("ScheduleFirstHalf");
-	var sched_second  = tab.getRange("ScheduleSecondHalf");
-	l.debug(5, "newDay: finding old schedule");
-	// cut schedule down to however many values we got back from the template
-	sched_first = sched_first.offset(0, 0, values_first.length);
-	sched_first.setValues(values_first);
-	sched_second = sched_second.offset(0, 0, values_second.length);
-	sched_second.setValues(values_second);
+	var sched_second  = tab.getRange("ScheduleSecondHalf");				l.debug(5, "newDay: finding old schedule");
+	// cut template down to however many values we got need for the schedule
+	// (weirdly, the endpoint index in .slice() is not included in the copy)
+	sched_first.setValues(values_first.slice(0, sched_first.getHeight()));
+	sched_second.setValues(values_second.slice(0, sched_second.getHeight()));
 
 	// now that "tomorrow" is "today," save again
 	saveDay();
