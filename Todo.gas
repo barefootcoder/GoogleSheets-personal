@@ -976,23 +976,45 @@ function newDay ()
 
 	var date = me.getRange("TodaysDate");
 	date.setValue( l.today() );
-																		l.debug(5, "newDay: going to pull template tab");
-	var templ = me.getSheetByName("DayTemplates");						l.debug(5, "newDay: going to find 'Today' header");
-	var col = l.getColumnOfHeader(templ, "Today");						l.debug(5, "newDay: pulling new schedule");
-	var values_first  = l.getDataSlice(templ, { col: col,     as: 'values' });
-	var values_second = l.getDataSlice(templ, { col: col + 1, as: 'values' });
-	var sched_first   = tab.getRange("ScheduleFirstHalf");
-	var sched_second  = tab.getRange("ScheduleSecondHalf");				l.debug(5, "newDay: finding old schedule");
-	// cut template down to however many values we got need for the schedule
-	// (weirdly, the endpoint index in .slice() is not included in the copy)
-	sched_first.setValues(values_first.slice(0, sched_first.getHeight()));
-	sched_second.setValues(values_second.slice(0, sched_second.getHeight()));
+	copyDayTemplate("Today");
 
 	// now that "tomorrow" is "today," save again
 	saveDay();
 
 	// leave the user in a place to update the day start
 	tab.getRange("InputDayStart").activate();
+}
+
+function copyDayTemplate (day)
+{
+	l.debug(5, "copyDayTemplate: firing up");
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("Today");
+
+	var templ = me.getSheetByName("DayTemplates");						l.debug(5, "copyDayT: going to find header");
+	var col = l.getColumnOfHeader(templ, day);							l.debug(5, "copyDayT: pulling new schedule");
+	var values_first  = l.getDataSlice(templ, { col: col,     as: 'values' });
+	var values_second = l.getDataSlice(templ, { col: col + 1, as: 'values' });
+	l.debug(4, "copyDayT: found sched (first ½): " + values_first);
+	var sched_first   = tab.getRange("ScheduleFirstHalf");
+	var sched_second  = tab.getRange("ScheduleSecondHalf");				l.debug(5, "copyDayT: finding old schedule");
+	// cut template down to however many values we need for the schedule
+	// (weirdly, the endpoint index in .slice() is not included in the copy)
+	sched_first.setValues(values_first.slice(0, sched_first.getHeight()));
+	sched_second.setValues(values_second.slice(0, sched_second.getHeight()));
+}
+
+function dayTemplateAs ()
+{
+	l.debug(5, "dayTemplateAs: firing up");
+	var day = l.prompt("PRETEND DAY IS", "Day to copy:");
+	if (day == undefined)
+	{
+		return;
+	}
+
+	day = day.charAt(0).toUpperCase() + day.substr(1).toLowerCase();
+	copyDayTemplate(day);
 }
 
 
@@ -1271,6 +1293,7 @@ function onOpen ()
 		.addItem("Empty InTray", "emptyInTray")
 		.addItem("Start a New Day", "newDay")
 		.addSubMenu(ui.createMenu("More Transitions")
+				.addItem("Pretend Today Is ...", "dayTemplateAs")
 				.addItem("(Re)Save Day to Diary", "saveDay")
 				.addItem("Resave End of Day to Diary", "saveDayEnd")
 				.addItem("Save CalenDiary's Earliest Month to History", "saveToHistory")
