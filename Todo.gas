@@ -1,17 +1,4 @@
 /*
- *****************
- * control funcs *
- *****************
- */
-
-// Read a JSON string out of A1 on the given tab and turn it into an object.
-function controlObjectForTab (tab)
-{
-	return JSON.parse( tab.getRange(1, 1).getValue() );
-}
-
-
-/*
  **********************
  * general item funcs *
  **********************
@@ -386,7 +373,7 @@ function completeItem (obj)
 		l.progress("Popping priority stack (if necessary) for " + code);
 		var comptab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("CompletedStackItem");
 		comptab.getRange(1, 2).setValue(obj.id);
-		var objs_to_update = controlObjectForTab( comptab );
+		var objs_to_update = l.controlObjectForTab( comptab );
 		l.debug(4, "completeItem: objects to update:", objs_to_update);
 		var ids = l.keys(objs_to_update); ids.sort;
 		var num_ids = ids.length;
@@ -849,7 +836,7 @@ function newTVSeason ()
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("NewTVSeason");
-	var control = controlObjectForTab( tab );
+	var control = l.controlObjectForTab( tab );
 
 	var season_tab = me.getSheetByName("TVSeasons");
 	var data_tab   = me.getSheetByName("TVRawData");

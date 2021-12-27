@@ -167,6 +167,20 @@ function dateIntoCell (date, cell)
 
 
 /*
+ *********************
+ * Control Functions *
+ *********************
+ */
+
+// Read a JSON string out of A1 on the given tab and turn it into an object.
+function controlObjectForTab (tab)
+{
+	return JSON.parse( tab.getRange(1, 1).getValue() );
+}
+
+
+
+/*
  ****************************
  *	General UI functions	*
  * (mostly stolen from the  *
