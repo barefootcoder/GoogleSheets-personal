@@ -178,6 +178,22 @@ function controlObjectForTab (tab)
 	return JSON.parse( tab.getRange(1, 1).getValue() );
 }
 
+// Enter a value into a lookup range, then return an object with the result(s).
+// (Designed to be called by a wrapper function for each specific lookup range.)
+function sheetLookup (lookupName, value, resultCells)
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var rangeName = lookupName + "Lookup";
+	var lookup = me.getRange(rangeName);
+	lookup.getCell(1, 1).setValue(value);
+	var resultObj = {};
+	foreach(resultCells, function (_)
+	{
+		resultObj[_.name] = lookup.getCell(_.row, _.col).getValue();
+	});
+	return resultObj;
+}
+
 
 
 /*

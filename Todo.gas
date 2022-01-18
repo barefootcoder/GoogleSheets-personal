@@ -1,4 +1,21 @@
 /*
+ *****************
+ * sheet lookups *
+ *****************
+ */
+
+function itemIdLookup (id)
+{
+	return l.sheetLookup( "ItemId", id, [ { name:"tab", row:2, col:1 }, { name:"row", row:2, col:2 }, ] );
+}
+
+function jobLookup (job)
+{
+	return l.sheetLookup( "Job", job, [ { name:"row", row:1, col:2 }, ] );
+}
+
+
+/*
  **********************
  * general item funcs *
  **********************
@@ -111,11 +128,9 @@ function getRowForObject (id)
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	l.debug(3, "getRowForObject: id isa " + l.ref(id));
-	var id_lookup = me.getRange("ItemIdLookup");
-	id_lookup.getCell(1, 1).setValue(id);
-	l.debug(4, "getRowForObject: looking up ID " + id_lookup.getCell(1, 1).getValue());
-	var tab = me.getSheetByName( id_lookup.getCell(2, 1).getValue() );
-	return tab == undefined ? undefined : l.getDataSlice(tab, { row: id_lookup.getCell(2, 2).getValue(), as: "range" });
+	var lookup = itemIdLookup(id);
+	var tab = me.getSheetByName( lookup.tab );
+	return tab == undefined ? undefined : l.getDataSlice(tab, { row: lookup.row, as: "range" });
 }
 
 function getObject (id)
@@ -316,10 +331,9 @@ function jumpToJob ()
 	var code = pos.getValue();
 	if (String(code).length == 5)
 	{
-		var job_lookup = me.getRange("JobLookup");
-		job_lookup.getCell(1, 1).setValue(code);
+		var lookup = jobLookup(code);
 		var tab = me.getSheetByName("RawJobs");
-		l.getDataSlice(tab, { row: job_lookup.getCell(1, 2).getValue(), as: "range" }).activate();
+		l.getDataSlice(tab, { row: lookup.row, as: "range" }).activate();
 	}
 	else
 	{
