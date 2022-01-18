@@ -798,7 +798,7 @@ function addRecurring ()
 			var data = me.getSheetByName(_.copyTo);
 			var dest_row = jumpToBottom(_.copyTo).getRow();
 			var first_data_col = l.getColumnOfHeader(data, _.startAt);
-			toCopy.copyValuesToRange(data, first_data_col, first_data_col + num_cols - 1, dest_row, dest_row + num_rows - 1);
+			l.copyValuesTo(toCopy, data, dest_row, first_data_col);
 		}
 	});
 
@@ -842,12 +842,10 @@ function newTVSeason ()
 	var data_tab   = me.getSheetByName("TVRawData");
 
 	var season_data = tab.getRange(control.season_data);
-	season_data.copyValuesToRange(season_tab, 1, season_data.getWidth(),
-			control.season_row, control.season_row);
+	l.copyValuesTo(season_data, season_tab, control.season_row, 1);
 
 	var show_data = tab.getRange(control.show_data);
-	show_data.copyValuesToRange(data_tab, 1, show_data.getWidth(),
-			control.tvdata_row, control.tvdata_row + show_data.getHeight() - 1);
+	l.copyValuesTo(show_data, data_tab, control.tvdata_row, 1);
 
 	tab.getRange(control.input_data).clearContent();
 }
