@@ -14,6 +14,11 @@ function jobLookup (job)
 	return l.sheetLookup( "Job", job, [ { name:"row", row:1, col:2 }, ] );
 }
 
+function jumpTabLookup (val)
+{
+	return l.sheetLookup( "JumpTab", val, [ { name:"tab", row:2, col:1 }, { name:"default", row:2, col:2 }, ] );
+}
+
 
 /*
  **********************
@@ -846,6 +851,30 @@ function addRecurring ()
 }
 
 
+function newTask ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("NewTask");
+	var control = l.controlObjectForTab( tab );
+
+	var jobs_tab = me.getSheetByName("RawJobs");
+	var data_tab = me.getSheetByName("RawData");
+
+	var item_data = tab.getRange(control.item_data);
+	l.copyValuesTo(item_data, data_tab, control.data_row, 1);
+
+	// insert a new job (if any) after inserting new data;
+	// this keeps the job code from bumping up to the next number
+	if (control.job_data != undefined)
+	{
+		var job_data = tab.getRange(control.job_data);
+		l.copyValuesTo(job_data, jobs_tab, control.job_row, 1);
+	}
+
+	l.debug(3, "newTask: input data ranges", control.input_data);
+	tab.getRangeList(control.input_data).clearContent();
+}
+
 function newTVSeason ()
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
@@ -855,11 +884,11 @@ function newTVSeason ()
 	var season_tab = me.getSheetByName("TVSeasons");
 	var data_tab   = me.getSheetByName("TVRawData");
 
-	var season_data = tab.getRange(control.season_data);
-	l.copyValuesTo(season_data, season_tab, control.season_row, 1);
-
 	var show_data = tab.getRange(control.show_data);
 	l.copyValuesTo(show_data, data_tab, control.tvdata_row, 1);
+
+	var season_data = tab.getRange(control.season_data);
+	l.copyValuesTo(season_data, season_tab, control.season_row, 1);
 
 	tab.getRange(control.input_data).clearContent();
 }
@@ -1323,6 +1352,30 @@ function onOpen ()
 				.addItem("Test", "testCurrentThing")
 			)
 		.addToUi();
+}
+
+function onEdit (e)
+{
+	var n = e.range.getNote();
+	if (!n) { return }
+	if (n.startsWith("JUMP"))
+	{
+		l.progress("Jumping ...");
+		var lookup = jumpTabLookup(e.value);							l.debug(3, "Jumping with value:", lookup);
+		if (lookup.tab == "")
+		{
+			l.showError(`Don't know where to jump for: ${e.value}`);
+			return;
+		}
+		else
+		{
+			var tab = e.source.getSheetByName(lookup.tab);
+			var control = l.controlObjectForTab( tab );
+			tab.getRange(control.start_cell).activate();
+			e.range.setValue( lookup.default );
+		}
+		l.progress("Done");
+	}
 }
 
 function testCurrentThing ()
