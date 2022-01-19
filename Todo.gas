@@ -190,12 +190,14 @@ function getCurrentRow ()
 
 function newItem (object, tabname)
 {
+	var me = SpreadsheetApp.getActiveSpreadsheet();
 	// Handle defaults, since GAS JS is too old to do it in the signature.
 	if ( tabname == undefined )
 	{
 		tabname = "RawData";
+		object.id = me.getRange("RawDataNextID").getValue();
 	}
-	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RawData");
+	var tab = me.getSheetByName("RawData");
 	var new_row = l.getFirstEmptyRow(tabname, "Description");
 	if (new_row == undefined)
 	{
@@ -1370,8 +1372,15 @@ function onEdit (e)
 		else
 		{
 			var tab = e.source.getSheetByName(lookup.tab);
-			var control = l.controlObjectForTab( tab );
-			tab.getRange(control.start_cell).activate();
+			if (tab.getTabColor() == "#999999")
+			{
+				jumpToBottom(lookup.tab);
+			}
+			else
+			{
+				var control = l.controlObjectForTab( tab );
+				tab.getRange(control.start_cell).activate();
+			}
 			e.range.setValue( lookup.default );
 		}
 		l.progress("Done");
