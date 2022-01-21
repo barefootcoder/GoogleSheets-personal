@@ -799,7 +799,7 @@ function addRecurring ()
 
 	var copyRanges =
 	[
-		{ howMany:num_items, rangeFrom: 9, copyTo:"RawData", startAt:"Priority" },
+		{ howMany:num_items, rangeFrom: 9, copyTo:"RawData", startAt:"ID" },
 		{ howMany:num_jobs,  rangeFrom:19, copyTo:"RawJobs", startAt:"Code"     },
 	];
 	l.foreach(copyRanges, function (_)
@@ -845,9 +845,8 @@ function addRecurring ()
 
 	// clear stuff on Recurring tab before reporting success
 	// that way, timing out won't leave stray Xs lying around
-	l.getDataSlice(recur, { col: 1, after_headers: true, as: 'range' }).clearContent();
-	l.getDataSlice(recur, { col: 2, after_headers: true, as: 'range' }).clearContent();
-	l.getDataSlice(recur, { col: 3, after_headers: true, as: 'range' }).clearContent();
+	var control = l.controlObjectForTab( recur );
+	recur.getRange("A" + control.start_clearing_at_row + ":C").clearContent();
 
 	l.infoMsg("Added " + num_items + " new tasks.");
 }
