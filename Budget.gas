@@ -338,6 +338,20 @@ function familyPaychecks ()
 
 
 /*
+ ********************
+ *		buttons		*
+ ********************
+ */
+
+function jumpToBudget ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("Budget");
+	tab.activate();
+}
+
+
+/*
  ************************
  *		sheet setup		*
  ************************
