@@ -891,7 +891,8 @@ function newTVSeason ()
 	var season_data = tab.getRange(control.season_data);
 	l.copyValuesTo(season_data, season_tab, control.season_row, 1);
 
-	tab.getRange(control.input_data).clearContent();
+	l.debug(3, "newTask: input data ranges", control.input_data);
+	tab.getRangeList(control.input_data).clearContent();
 }
 
 
