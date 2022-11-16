@@ -350,6 +350,13 @@ function jumpToBudget ()
 	tab.activate();
 }
 
+function jumpToSummary ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getSheetByName("Summary");
+	tab.activate();
+}
+
 
 /*
  ************************
