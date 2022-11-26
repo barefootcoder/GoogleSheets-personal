@@ -272,7 +272,7 @@ function duplicateItem ()
 {
 	splitItem(false);
 }
-function splitItem (close_out)
+function splitItem (close_out, withNote)
 {
 	var id = getIDofCurrentRow();
 	if (id == undefined)
@@ -308,10 +308,26 @@ function splitItem (close_out)
 		// of extra work in case there were no other items with the same
 		// priority ... but, in this case, we *know* there's at least one other
 		// such item, because we just created it.  So we're shortcutting a bit.
-		updateItem({ id: id, priority: "", completed: l.today() });
+		var updates = { id: id, priority: "", completed: l.today() };
+		if (withNote != undefined)
+		{
+			updates.notes = withNote;
+		}
+		updateItem(updates);
 	}
 	// finally, let the user edit the new item if they want to
 	row.activate();
+}
+
+function splitItemWithNote ()
+{
+	var note = l.prompt("SPLIT ITEM", "Completion note:");
+	if (note == undefined)
+	{
+		return;
+	}
+
+	splitItem( true, note );
 }
 
 function jumpToItem ()
@@ -1323,6 +1339,7 @@ function onOpen ()
 				.addItem("Mark Completed (with Note)", "markCompletedWithNote")
 				.addItem("Mark Completed as of Yesterday", "markCompletedAsOfYesterday")
 				.addItem("Split Open Item", "splitItem")
+				.addItem("Split Open Item (with Note)", "splitItemWithNote")
 				.addItem("Cancel Item", "markCancelled")
 				.addSeparator()
 				.addItem("Jump to Full Edit", "jumpToItem")
