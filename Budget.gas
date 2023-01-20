@@ -226,7 +226,7 @@ function splitPaycheck ()
 		var category  = categories[i][0];
 		var fund_code = fund_codes[i][0];
 		var amount    =    amounts[i][0];
-		if (fund_code == "P")
+		if (fund_code == "P" && amount != 0)
 		{
 			var row = l.getDataSlice(tab, { row: new_row++, as: 'range' });
 			last_row.copyTo(row, {formatOnly: true});
