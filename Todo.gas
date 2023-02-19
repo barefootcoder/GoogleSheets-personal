@@ -19,6 +19,11 @@ function jumpTabLookup (val)
 	return l.sheetLookup( "JumpTab", val, [ { name:"tab", row:2, col:1 }, { name:"default", row:2, col:2 }, ] );
 }
 
+function pushTodayLookup (date)
+{
+	return l.sheetLookup( "PushToday", date, [ { name:"newdate", row:1, col:2 }, ] );
+}
+
 
 /*
  **********************
@@ -109,10 +114,10 @@ function dataHeaderColumn (column)
 
 function getID (range)
 {
-	var row = range.getRow();
+	var top = range.getRow();
 	var tab = range.getSheet();
 	var last_header_row = tab.getFrozenRows();
-	if (row <= last_header_row)
+	if (top <= last_header_row)
 	{
 		l.showError("Get out of the header!");
 		return;
@@ -124,9 +129,18 @@ function getID (range)
 		l.showError("You're not on a sheet with an ID column.");
 		return;
 	}
-	var vals = tab.getSheetValues(row, id_col, 1, 1);
-	l.debug(4, "getID: returning ID " + vals[0][0]);
-	return vals[0][0];
+	var num_ids = range.getHeight();
+	var vals = tab.getSheetValues(top, id_col, num_ids, 1);
+	if (num_ids == 1)
+	{
+		vals = vals[0][0];
+	}
+	else
+	{
+		vals = l.flatten(vals);
+	}
+	l.debug(4, "getID: returning ID(s) " + vals);
+	return vals;
 }
 
 function getRowForObject (id)
@@ -626,30 +640,17 @@ function tweakPriority (amount)
 	var item;
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var selection = me.getActiveRange();
-	selHeight = selection.getHeight();
-	if (selHeight > 1)
+	l.foreach(getID(selection), function (id)
 	{
-		for (var i=selHeight; i >= 1; --i)
+		if (id != undefined)
 		{
-			var id = getID(selection.getCell(i,1));
-			if (id != undefined)
+			item = getRowForObject(id);
+			if (item != undefined)
 			{
-				item = getRowForObject(id);
-				if (item != undefined)
-				{
-					tweakPriorityOfItem(item, amount);
-				}
+				tweakPriorityOfItem(item, amount);
 			}
 		}
-	}
-	else
-	{
-		item = getCurrentRow();
-		if (item != undefined)
-		{
-			tweakPriorityOfItem(item, amount);
-		}
-	}
+	});
 }
 
 function tweakPriorityOfItem (item, amount)
@@ -708,37 +709,24 @@ function pushItemArbitrary ()
 		return;
 	}
 
-	// check to see whether it's a date or an offset
-	push_amt = push_amt.toLowerCase();
-	if ( new RegExp('/').test(push_amt) )			// prolly nicer-looking than `/\//.test` ...
-	{
-		setDueDate(push_amt);
-	}
-	else if ( /^[+-]?\d+$/.test(push_amt) )
-	{
-		tweakPriority(Number(push_amt));
-	}
-	else if ( /^[a-z]+$/.test(push_amt) )
-	{
-		var days = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
-		var day = days[push_amt];
-		if (day == undefined)
-		{
-			l.showError("I thought " + push_amt + " was a day name, but I don't recognize it.");
-			return;
-		}
+	var me  = SpreadsheetApp.getActiveSpreadsheet()
+	var tab = me.getSheetByName("PushDue");
+	var ids = getID(me.getActiveRange());
 
-		var date = l.today({ as: 'date' });
-		date.setDate( date.getDate() + ((day + 7 - date.getDay()) % 7) );
-		date = l.nextDoW(date, day);
-		l.debug(3, "pushItemArbitrary: new date => " + date.toISOString());
-		setDueDate(date);
-	}
-	else
+	var input_col = tab.getRange("B:B");
+	input_col.clearContent();
+	input_col.getCell(1,1).setValue(push_amt);
+	l.foreach(ids, function (_, idx)
 	{
-		l.showError("Don't know how to convert " + push_amt + " to a date or date offset.");
-		return;
-	}
+		input_col.getCell(2 + idx, 1).setValue(_);
+	});
+
+	var updates  = l.controlObjectForTab( tab );
+	var data_tab = me.getSheetByName("RawData");
+	l.foreach(updates, function(_)
+	{
+		data_tab.getRange(_.row, _.column).setValue(_.value);
+	});
 }
 
 
