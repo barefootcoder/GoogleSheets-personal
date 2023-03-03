@@ -86,7 +86,7 @@ function dataHeaderColumn (column)
 		data_headers = {};
 		for (var i=0, len=data_header_row.length; i < len; ++i)
 		{
-			var header = data_header_row[i].toLowerCase();
+			var header = data_header_row[i].toString().toLowerCase();
 			data_header_row[i] = header;			// save LC version back to the array
 			data_headers[header] = i + 1;			// go from 0-origin to 1-origin
 		}
@@ -637,14 +637,14 @@ function incPriority (base, inc, opts)
 
 function tweakPriority (amount)
 {
-	var item;
-	var me = SpreadsheetApp.getActiveSpreadsheet();
-	var selection = me.getActiveRange();
-	l.foreach(getID(selection), function (id)
+	var me  = SpreadsheetApp.getActiveSpreadsheet();
+	var ids = getID(me.getActiveRange());
+	ids = l.flatten( [ids] );						// make sure it's an array
+	l.foreach(ids, function (id)
 	{
 		if (id != undefined)
 		{
-			item = getRowForObject(id);
+			var item = getRowForObject(id);
 			if (item != undefined)
 			{
 				tweakPriorityOfItem(item, amount);
@@ -712,6 +712,7 @@ function pushItemArbitrary ()
 	var me  = SpreadsheetApp.getActiveSpreadsheet()
 	var tab = me.getSheetByName("PushDue");
 	var ids = getID(me.getActiveRange());
+	ids = l.flatten( [ids] );						// make sure it's an array
 
 	var input_col = tab.getRange("B:B");
 	input_col.clearContent();
