@@ -307,8 +307,20 @@ function debug (level, msg, obj)
 function debug_tab ()
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-	var msg = "data range is " + me.getDataRange().getA1Notation() + "\n"
-			+ "tab color is " + me.getTabColor() + "\n";
+	try
+	{
+		var json = JSON.stringify(controlObjectForTab(me), null, 4);
+		const nonBreakingSpace = String.fromCharCode(0xA0);
+		json = json.replace(/ /g, nonBreakingSpace);
+	}
+	catch (e)
+	{
+		json = `N/A [${e.message}]`;
+	}
+	var msg = `data range is ${me.getDataRange().getA1Notation()} \n`
+			+ `tab color is ${me.getTabColor()} \n`
+			+ `current cell is ${me.getCurrentCell().getA1Notation()} \n`
+			+ `\ncontrol object:\n${json}\n`;
 
 	var ui = SpreadsheetApp.getUi();
 	ui.alert("DEBUG", msg, ui.ButtonSet.OK);
