@@ -178,6 +178,65 @@ function controlObjectForTab (tab)
 	return JSON.parse( tab.getRange(1, 1).getValue() );
 }
 
+// If they don't already exist, set up the necessary columns for having a
+// control object for the current tab.
+function insertControlColumns ()
+{
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+
+	// if we already have a control object, no need to do this
+	var proceed = false;
+	try
+	{
+		var json = JSON.stringify(controlObjectForTab(tab));
+	}
+	catch (e)
+	{
+		proceed = true;
+	}
+
+	if (proceed)
+	{
+		// figure out where the headers end and data should start
+		var start_data_in_row = tab.getFrozenRows() + 1;
+
+		// insert 3 blank columns at the beginning
+		tab.insertColumns(1, 3);
+		tab.getRange('A:C').clearFormat();
+
+		// set the column widths for the new columns
+		tab.setColumnWidth(1, 150);
+		tab.setColumnWidth(2, 100);
+		tab.setColumnWidth(3, 250);
+
+		// A1 should contain the JSON from the new columns
+		var A1 = tab.getRange('A1');
+		var B1 = tab.getRange('B1');
+		var C1 = tab.getRange('C1');
+		B1.setValue('header_row:');										B1.setHorizontalAlignment('right');
+		C1.setValue('=match(true, arrayformula(A2:A <> ""), 0)');		C1.setHorizontalAlignment('left');
+		A1.setValue('=table2json(offset(A2, C1 - 1, 0, rows(A2:A), 2))');
+
+		// column C should show a user-friendly view of the JSON
+		var data_block = tab.getRange(`C${start_data_in_row}:C20`);
+		data_block.merge();
+		data_block.setHorizontalAlignment('left');
+		data_block.setVerticalAlignment('top');
+		data_block.setValue('=A1');
+
+		// separate the control columns from the rest of the tab
+		tab.getRange("C:C").setBorder(null, null, null, true, null, null, "black",
+				SpreadsheetApp.BorderStyle.SOLID_THICK);
+	}
+	else
+	{
+		showError(`This tab already has a control object, so adding more control columns `
+				+ `is not necessary (and can be dangerous).`);
+		return undefined;
+	}
+}
+
 // Enter a value into a lookup range, then return an object with the result(s).
 // (Designed to be called by a wrapper function for each specific lookup range.)
 function sheetLookup (lookupName, value, resultCells)
