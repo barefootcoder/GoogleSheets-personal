@@ -758,28 +758,6 @@ function newAndEdit ()
 	row.activate();
 }
 
-function emptyInTray ()
-{
-	var tab = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("InTray");
-	var first_row = tab.getFrozenRows() + 1;
-	var last_row = l.getFirstEmptyRow("InTray", "Description").getRow() - 1;
-	if (first_row > last_row)
-	{
-		l.showError("InTray is already empty!");
-		return;
-	}
-
-	l.debug(2, "emptyInTray: going from row " + last_row + " to row " + first_row);
-	for (var i=last_row; i >= first_row; --i)
-	{
-		var row = l.getDataSlice(tab, { row: i, as: 'range' });
-		var new_list = row.getValue();				// value of the first cell in the row
-		var id = getID(row);
-		updateItem({ id: id, list: new_list });
-		row.getCell(1, 1).clear();					// clear out the new_list value now that we've used it
-	}
-}
-
 
 function addRecurring ()
 {
@@ -1335,7 +1313,6 @@ function onOpen ()
 				.addItem("Jump to Job Edit", "jumpToJob")
 			)
 		.addSeparator()
-		.addItem("Empty InTray", "emptyInTray")
 		.addItem("Start a New Day", "newDay")
 		.addSubMenu(ui.createMenu("More Transitions")
 				.addItem("Pretend Today Is ...", "dayTemplateAs")
