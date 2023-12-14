@@ -759,7 +759,7 @@ function newAndEdit ()
 }
 
 
-function addRecurring ()
+function addRecurring (auto)
 {
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var to_add  = me.getSheetByName("RecurringToAdd");
@@ -768,15 +768,16 @@ function addRecurring ()
 
 	if (control.num_items == 0)
 	{
-		l.showError("No recurring tasks marked.");
+		if (!auto)
+		{
+			l.showError("No recurring tasks marked.");
+		}
 		return;
 	}
-	else
+
+	if (!auto && !l.confirm("Going to add " + control.num_items + " tasks and " + control.num_jobs + " jobs; proceed?"))
 	{
-		if (!l.confirm("Going to add " + control.num_items + " tasks and " + control.num_jobs + " jobs; proceed?"))
-		{
-			return;
-		}
+		return;
 	}
 
 	var copyRanges =
@@ -826,7 +827,15 @@ function addRecurring ()
 	// that way, timing out won't leave stray Xs lying around
 	recur.getRange("A" + control.start_clearing_at_row + ":C").clearContent();
 
-	l.infoMsg("Added " + control.num_items + " new tasks.");
+	if (!auto)
+	{
+		l.infoMsg("Added " + control.num_items + " new tasks.");
+	}
+}
+
+function addRecurringAuto ()
+{
+	addRecurring(true);
 }
 
 
