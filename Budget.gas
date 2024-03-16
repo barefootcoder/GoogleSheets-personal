@@ -34,16 +34,23 @@ function makeNewTransRows()
 			}
 			else
 			{
-				// left side, values: copy formats only; right side, formulae: copy everything
+				// left side, values: copy formats only
 				var last_value = formulae_start_at - 1;
 				var left_side = top_row.offset(0,0, 1,last_value);
-				l.debug(3, "makeNewTransRows: copying formats from " + l.displayAddress(left_side) + " to "
-						+ top_rownum + ',' + 1 + '+' + num_rows + '+' + last_value);
-				left_side.copyTo(tab.getRange(top_rownum, 1, num_rows, last_value), {formatOnly: true});
+				var left_target = tab.getRange(top_rownum, 1, num_rows, last_value);
+				l.debug(3, `makeNewTransRows: copying formats from ${l.displayAddress(left_side)} to `
+						+ l.displayAddress(left_target));
+				left_side.copyTo(left_target, {formatOnly: true});
+				// number formats require special treatment; ChatGPT helped write this
+				var num_fmts = left_side.getNumberFormats();
+				left_target.setNumberFormats(new Array(num_rows).fill(num_fmts[0]));
+
+				// right side, formulae: copy everything
 				var right_side = top_row.offset(0,formulae_start_at-1, 1,last_column-formulae_start_at);
-				l.debug(3, "makeNewTransRows: copying all from " + l.displayAddress(right_side) + " to "
-						+ top_rownum + ',' + formulae_start_at + '+' + num_rows + '+' + last_column);
-				right_side.copyTo(tab.getRange(top_rownum, formulae_start_at, num_rows, last_column));
+				var right_target = tab.getRange(top_rownum, formulae_start_at, num_rows, last_column);
+				l.debug(3, `makeNewTransRows: copying all from ${l.displayAddress(right_side)} to `
+						+ l.displayAddress(right_target));
+				right_side.copyTo(right_target);
 			}
 			tab.getRange(top_rownum, 1, 1,1).activate()
 		};
