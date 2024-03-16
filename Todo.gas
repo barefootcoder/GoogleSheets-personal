@@ -1147,64 +1147,77 @@ function saveDayEnd ()
 function saveToHistory ()
 {
 	l.debug(5, "saveToHistory: firing up");
-	var diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
+	const diary = SpreadsheetApp.openById("1F9ge-m3ez4Yp4jzuQvtRolTP61Dr1rH7D2qoibRxkzI");
 	l.progress("Finding earliest month");
 	var tabs = diary.getSheets();
 
-	var quarters   = new Object();
-	var month_tabs = new Object();
-	for (var i = 0; i < tabs.length; ++i)
+	let quarters     = {};
+	let month_tabs   = {};
+	const date_regex = /(\d{4})-(\d\d)-(\d\d)/;
+	tabs.forEach( (tab) =>
 	{
-		var name = tabs[i].getName();
-		if ( /\d\d\d\d-\d\d-\d\d/.test(name) )
+		let name  = tab.getName();
+		let match = name.match(date_regex);
+		if (match)
 		{
-			var year  = name.substr(0,4);
-			var month = name.substr(5,2);
-			var myr   = name.substr(0,7);
-			var quarter = l.int((month - 1) / 3) + 1;
-			var sheet_name = "CalenDiary History " + year + "-Q" + quarter;
-			if (month_tabs[myr] == undefined)
+			let [_, year, month] = match;
+			let myr     = `${year}-${month}`;
+			let quarter = l.int((month - 1) / 3) + 1;
+			let sheet_name = `CalenDiary History ${year}-Q${quarter}`;
+			if (!month_tabs[myr])
 			{
 				month_tabs[myr] = [];
 			}
-			month_tabs[myr].push(tabs[i]);
+			month_tabs[myr].push(tab);
 			if (quarters[sheet_name] == undefined || myr < quarters[sheet_name])
 			{
 				quarters[sheet_name] = myr;
 			}
 		}
-	}
+	});
 	l.progress("Finding history sheet name");
-	var potentials = l.keys(quarters);
+	let potentials = l.keys(quarters);
 	potentials.sort();
-	var history_name = potentials[0];
-	var history_files = DriveApp.getFilesByName(history_name);
+	let history_name = potentials[0];
+	const history_files = DriveApp.getFilesByName(history_name);
+	let history;
 	if (history_files.hasNext())
 	{
-		var history = SpreadsheetApp.open(history_files.next());
-		var tabs_to_save = month_tabs[quarters[history_name]];
-		var tab_names = tabs_to_save.map(function (_) { return _.getName() }).toString();
-		if (l.confirm("Will save these tabs to " + history_name + ": " + tab_names))
-		{
-			for (var i = 0; i < tabs_to_save.length; ++i)
-			{
-				var day = tabs_to_save[i];
-				var day_name = day.getName();
-				l.progress("Moving tab: " + day_name);
-				var new_tab = day.copyTo(history);
-				new_tab.setName(day_name);
-				diary.deleteSheet(day);
-			}
-		}
-		else
-		{
-			l.showError("Bailing out at user request.");
-		}
+		history = SpreadsheetApp.open(history_files.next());
 	}
 	else
 	{
-		l.showError("You must create sheet: " + history_name);
+		// create a new sheet if it doesn't exist
+		history = SpreadsheetApp.create(history_name);
+
+		// delete the default (blank) sheet
+		let defaultSheet = history.getSheets()[0];
+		if (defaultSheet.getName() == 'Sheet1')							// overabundance of caution
+		{
+			history.deleteSheet(defaultSheet);
+		}
+
+		l.progress(`Created new history sheet: ${history_name}`);
 	}
+
+	let tabs_to_save = month_tabs[quarters[history_name]];
+	let tab_names = tabs_to_save.map(function (_) { return _.getName() }).toString();
+	if (l.confirm("Will save these tabs to " + history_name + ": " + tab_names))
+	{
+		tabs_to_save.forEach( (day) =>
+		{
+			let day_name = day.getName();
+			l.progress(`Moving tab ${day_name}`);
+			let new_tab = day.copyTo(history);
+			new_tab.setName(day_name);
+			diary.deleteSheet(day);
+		});
+	}
+	else
+	{
+		l.showError("Bailing out at user request.");
+	}
+
 	l.progress("Done");
 }
 
