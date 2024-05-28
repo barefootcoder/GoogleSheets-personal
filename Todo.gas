@@ -701,7 +701,7 @@ function tweakPriorityOfItem (item, amount)
 function bumpItem () { tweakPriority(-1) }
 function pushItem () { tweakPriority(1)  }
 
-function pushItemArbitrary ()
+function pushListArbitrary (list)
 {
 	var push_amt = l.prompt("PUSH ITEM", "Push by (days) or push to (date):");
 	if (push_amt == undefined)
@@ -711,13 +711,11 @@ function pushItemArbitrary ()
 
 	var me  = SpreadsheetApp.getActiveSpreadsheet()
 	var tab = me.getSheetByName("PushDue");
-	var ids = getID(me.getActiveRange());
-	ids = l.flatten( [ids] );						// make sure it's an array
 
 	var input_col = tab.getRange("B:B");
 	input_col.clearContent();
 	input_col.getCell(1,1).setValue(push_amt);
-	l.foreach(ids, function (_, idx)
+	l.foreach(list, function (_, idx)
 	{
 		input_col.getCell(2 + idx, 1).setValue(_);
 	});
@@ -728,6 +726,22 @@ function pushItemArbitrary ()
 	{
 		data_tab.getRange(_.row, _.column).setValue(_.value);
 	});
+}
+function pushItemArbitrary ()
+{
+	var me  = SpreadsheetApp.getActiveSpreadsheet()
+	var ids = getID(me.getActiveRange());
+	ids = l.flatten( [ids] );						// make sure it's an array
+	pushListArbitrary(ids);
+}
+function pushJobArbitrary ()
+{
+	var job = l.prompt("PUSH ITEM", "Job to push:");
+	if (job == undefined)
+	{
+		return;
+	}
+	pushListArbitrary( [job] );
 }
 
 
@@ -1325,6 +1339,7 @@ function onOpen ()
 		.addItem("Split Open Item", "splitItem")
 		.addSubMenu(ui.createMenu("More Edits")
 				.addItem("Bump Item", "bumpItem")
+				.addItem("Push Job (Outstanding Items Only)", "pushJobArbitrary")
 				.addSeparator()
 				.addItem("Mark Completed (with Note)", "markCompletedWithNote")
 				.addItem("Mark Completed as of Yesterday", "markCompletedAsOfYesterday")
