@@ -703,6 +703,7 @@ function pushItem () { tweakPriority(1)  }
 
 function pushListArbitrary (list)
 {
+	l.debug(5, "pushListArbitrary: firing up");
 	var push_amt = l.prompt("PUSH ITEM", "Push by (days) or push to (date):");
 	if (push_amt == undefined)
 	{
@@ -711,6 +712,8 @@ function pushListArbitrary (list)
 
 	var me  = SpreadsheetApp.getActiveSpreadsheet()
 	var tab = me.getSheetByName("PushDue");
+	l.debug(3, `pushListArbitrary: list has ${list.length} items`);
+	l.debug(4, `pushListArbitrary: list = ${list}`);
 
 	var input_col = tab.getRange("B:B");
 	input_col.clearContent();
