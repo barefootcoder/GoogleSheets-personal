@@ -550,6 +550,27 @@ function markCompletedWithNote ()
 	markCompleted( undefined, note );
 }
 
+function markCompletedAndDelegate ()
+{
+	var id = getIDofCurrentRow();
+	if (id == undefined)
+	{
+		return;
+	}
+	var delegate = l.prompt("MARK COMPLETED", "Delegate to whom?");
+	if (delegate == undefined)
+	{
+		return;
+	}
+
+	var obj = getObject(id);
+	completeItem(obj);
+	obj.list = 'Delegated';
+	obj.completed = l.today();
+	obj.description = delegate + ': ' + obj.description;
+	updateItem(obj);
+}
+
 function markCancelled ()
 {
 	var id = getIDofCurrentRow();
@@ -1346,6 +1367,7 @@ function onOpen ()
 				.addSeparator()
 				.addItem("Mark Completed (with Note)", "markCompletedWithNote")
 				.addItem("Mark Completed as of Yesterday", "markCompletedAsOfYesterday")
+				.addItem("Delegate and Mark Completed", "markCompletedAndDelegate")
 				.addItem("Split Open Item (with Note)", "splitItemWithNote")
 				.addItem("Cancel Item", "markCancelled")
 				.addSeparator()
