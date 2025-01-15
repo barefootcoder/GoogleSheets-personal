@@ -1,0 +1,17 @@
+function addToQueue ()
+{
+	var ui = SpreadsheetApp.getUi();
+	var me = SpreadsheetApp.getActiveSpreadsheet();
+	var tab = me.getActiveSheet();
+	var control = JSON.parse( tab.getRange(1, 1).getValue() );
+
+	if (!control.all_required_fields)
+	{
+		ui.alert("ERROR", "Can't save song with input errors", ui.ButtonSet.OK);
+		return;
+	}
+
+	var range = tab.getRange(control.first_blank_row, control.first_data_col, 1, control.values.length);
+	range.setValues( [control.values] );
+	tab.getRangeList(control.input_cells).clearContent();
+}
