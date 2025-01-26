@@ -1035,8 +1035,15 @@ function newDay ()
 	l.debug(5, "newDay: firing up");
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var tab = me.getSheetByName("Today");
+	var control = l.controlObjectForTab( tab );
 	tab.activate();
 	l.debug(5, "newDay: activated tab");
+
+	if (control.num_project_blocks > 0)
+	{
+		l.showError("Can't start a new day with <Project> blocks outstanding.");
+		return;
+	}
 
 	// save any potential changes to "yesterday"
 	// before we switch over to "tomorrow"
@@ -1392,6 +1399,7 @@ function onOpen ()
 				.addItem("Refresh Menu", "onOpen")
 				.addItem("Debug Tab", "l.debug_tab")
 				.addItem("Clear Tab Headers Cache", "l.tabHeadersClearCache")
+				.addItem("Add Standard Control Columns", "l.insertControlColumns")
 				.addItem("Test", "testCurrentThing")
 			)
 		.addToUi();
