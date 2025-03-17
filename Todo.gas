@@ -1235,13 +1235,6 @@ function saveToHistory ()
 		// create a new sheet if it doesn't exist
 		history = SpreadsheetApp.create(history_name);
 
-		// delete the default (blank) sheet
-		let defaultSheet = history.getSheets()[0];
-		if (defaultSheet.getName() == 'Sheet1')							// overabundance of caution
-		{
-			history.deleteSheet(defaultSheet);
-		}
-
 		l.progress(`Created new history sheet: ${history_name}`);
 	}
 
@@ -1257,6 +1250,15 @@ function saveToHistory ()
 			new_tab.setName(day_name);
 			diary.deleteSheet(day);
 		});
+
+		// delete the default (blank) sheet, if it happens to be there
+		// (presumably it won't be if we didn't just create the sheet,
+		// but we'll be careful enough that we can always try)
+		let defaultSheet = history.getSheets()[0];
+		if (defaultSheet.getName() == 'Sheet1')							// only if it's the blank one!
+		{
+			history.deleteSheet(defaultSheet);
+		}
 	}
 	else
 	{
