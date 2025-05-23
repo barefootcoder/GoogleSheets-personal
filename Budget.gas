@@ -94,37 +94,56 @@ function splitLine ()
 	var row = tab.getRange(rownum, 1, 1, tab.getMaxColumns());
 	var split_total = me.getRange("LineItemSplitTotal").getValue();
 	var line_total  = row.getCell(1, amt_col).getValue();
+	var mode;
 	if (line_total != -split_total)
 	{
-		l.showError("ReceiptSplitter is not set for line item total of " + -line_total);
-		return;
+		var message = `ReceiptSplitter is not set for line item total of ${ -line_total }.
+						Use manual mode instead?`;
+		var result = ui.alert(message, ui.ButtonSet.YES_NO_CANCEL);
+		if (result == ui.Button.CANCEL)
+		{
+			me.toast("Abandoning at user request.", "Split Line Item", 3);
+			return;
+		}
+		else if (result == ui.Button.NO)
+		{
+			l.showError("Cannot use automatic mode without proper line item total.");
+			return;
+		}
+		else					// must be YES
+		{
+			mode = "manual";
+		}
 	}
 
-	var num_splits = me.getRange("LineItemSplitInto").getValue();
-	l.debug(2, "splitLine: splitting " + split_total + " into " + num_splits + " lines");
-	var split_amts = [ undefined ];					// make our array 1-based by ignoring the 0th element
-	var split_amt_range = me.getRange("LineItemSplitAmounts").getValues();
-	l.debug(4, "splitLine: range is " + l.ref(split_amt_range) + " of " + l.ref(split_amt_range[0]) + "'s"
-			+ " of " + l.ref(split_amt_range[0][0]) + "'s");
-	for (var i=0; i < num_splits; ++i)
+	var num_splits, split_amts;
+	if (mode == undefined)
 	{
-		split_amts.push(split_amt_range[i][0]);
-	}
+		num_splits = me.getRange("LineItemSplitInto").getValue();
+		l.debug(2, "splitLine: splitting " + split_total + " into " + num_splits + " lines");
+		split_amts = [ undefined ];					// make our array 1-based by ignoring the 0th element
+		var split_amt_range = me.getRange("LineItemSplitAmounts").getValues();
+		l.debug(4, "splitLine: range is " + l.ref(split_amt_range) + " of " + l.ref(split_amt_range[0]) + "'s"
+				+ " of " + l.ref(split_amt_range[0][0]) + "'s");
+		for (var i=0; i < num_splits; ++i)
+		{
+			split_amts.push(split_amt_range[i][0]);
+		}
 
-	var summary = "Using data from the ReceiptSplitter tab, we will split the total of " + line_total
-			+ " into " + num_splits + " lines, with the following amounts:\n" + split_amts.join("\n")
-			+ "\n\nProceed with automatic data fill-in?  (Say <NO> to enter manual mode.)";
-	var result = ui.alert(summary, ui.ButtonSet.YES_NO_CANCEL);
-	var mode;
-	if (result == ui.Button.CANCEL)
-	{
-		me.toast("Abandoning at user request.", "Split Line Item", 3);
-		return;
-	}
-	else
-	{
-		mode = result == ui.Button.YES ? "auto" : "manual";
-		me.toast("Splitting in " + mode + " mode.", "Split Line Item");
+		var summary = `Using data from the ReceiptSplitter tab, we will split the total of ${line_total} into `
+				+ `${num_splits} lines, with the following amounts:\n${ split_amts.join("\n") }\n\n`
+				+ "Proceed with automatic data fill-in?  (Say <NO> to enter manual mode.)";
+		var result = ui.alert(summary, ui.ButtonSet.YES_NO_CANCEL);
+		if (result == ui.Button.CANCEL)
+		{
+			me.toast("Abandoning at user request.", "Split Line Item", 3);
+			return;
+		}
+		else
+		{
+			mode = result == ui.Button.YES ? "auto" : "manual";
+			me.toast("Splitting in " + mode + " mode.", "Split Line Item");
+		}
 	}
 
 	if (mode == "manual")
