@@ -1045,6 +1045,12 @@ function newDay ()
 		return;
 	}
 
+	var start_time = l.prompt("START A NEW DAY", "Time that day will start:");
+	if (start_time == undefined)
+	{
+		return;
+	}
+
 	// save any potential changes to "yesterday"
 	// before we switch over to "tomorrow"
 	saveDayEnd();
@@ -1056,8 +1062,8 @@ function newDay ()
 	// now that "tomorrow" is "today," save again
 	saveDay();
 
-	// leave the user in a place to update the day start
-	tab.getRange("InputDayStart").activate();
+	// update start time
+	tab.getRange(control.day_start_cell).setValue( start_time );
 }
 
 function copyDayTemplate (day)
