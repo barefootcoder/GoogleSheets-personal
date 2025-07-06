@@ -883,6 +883,12 @@ function newTask ()
 	var tab = me.getSheetByName("NewTask");
 	var control = l.controlObjectForTab( tab );
 
+	if (control.fatal_error != "")
+	{
+		l.showError(control.fatal_error);
+		return;
+	}
+
 	var jobs_tab = me.getSheetByName("RawJobs");
 	var data_tab = me.getSheetByName("RawData");
 
