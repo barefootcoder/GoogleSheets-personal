@@ -24,6 +24,12 @@ function pushTodayLookup (date)
 	return l.sheetLookup( "PushToday", date, [ { name:"newdate", row:1, col:2 }, ] );
 }
 
+function pushJobLookup (job)
+{
+	return l.sheetLookup( "PushJob", job, [ { name:"newdate", row:2, col:2 },
+											{ name:"row",     row:3, col:1 }, { name:"col", row:3, col:2 }, ] );
+}
+
 
 /*
  **********************
@@ -766,6 +772,13 @@ function pushJobArbitrary ()
 		return;
 	}
 	pushListArbitrary( [job] );
+	var lookup = pushJobLookup(job);
+	if (lookup.newdate != "")
+	{
+		var me  = SpreadsheetApp.getActiveSpreadsheet()
+		var jobs_tab = me.getSheetByName("RawJobs");
+		jobs_tab.getRange(lookup.row, lookup.col).setValue(lookup.newdate);
+	}
 }
 
 
