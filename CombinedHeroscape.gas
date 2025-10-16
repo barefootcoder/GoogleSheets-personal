@@ -1,0 +1,7 @@
+
+function clearData ()
+{
+	var tab = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+	var control = JSON.parse( tab.getRange(1, 1).getValue() );
+	tab.getRangeList(control.input_data).clearContent();
+}
