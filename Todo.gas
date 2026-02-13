@@ -1078,11 +1078,12 @@ function newDay ()
 	date.setValue( l.today() );
 	copyDayTemplate("Today");
 
+	// update time for hour blocks
+	tab.getRange(control.day_start_cell).setValue( start_time );
+	tab.getRange(control.day_end_cell).setValue( control.day_end_hrs );
+
 	// now that "tomorrow" is "today," save again
 	saveDay();
-
-	// update start time
-	tab.getRange(control.day_start_cell).setValue( start_time );
 }
 
 function copyDayTemplate (day)
