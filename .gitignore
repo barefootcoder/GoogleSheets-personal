@@ -1,0 +1,6 @@
+
+# Personal developer AI tool configurations
+.aider*
+.mcp.json
+.playwright-mcp/
+**/.claude/settings.local.json
