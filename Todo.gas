@@ -750,7 +750,17 @@ function pushListArbitrary (list)
 		input_col.getCell(2 + idx, 1).setValue(_);
 	});
 
-	var updates  = l.controlObjectForTab( tab );
+	var updates;
+	try
+	{
+		updates = l.controlObjectForTab( tab );
+	}
+	catch (e)
+	{
+		input_col.clearContent();
+		l.showError(`Invalid push value "${push_amt}". Enter a number of days or a valid date.`);
+		return;
+	}
 	var data_tab = me.getSheetByName("RawData");
 	l.foreach(updates, function(_)
 	{
