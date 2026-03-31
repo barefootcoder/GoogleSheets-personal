@@ -372,7 +372,7 @@ function jumpToJob ()
 	var me = SpreadsheetApp.getActiveSpreadsheet();
 	var pos = me.getActiveCell();
 	var code = pos.getValue();
-	if (String(code).length == 5)
+	if (String(code).length == 5 || /^CLASS-\d+$/.test(String(code)))
 	{
 		var lookup = jobLookup(code);
 		var tab = me.getSheetByName("RawJobs");
