@@ -314,6 +314,11 @@ function splitItem (close_out, withNote)
 	// new object, with *most* of the same values.
 	delete obj.completed;		// this may be blank already, but certainly _should_ be
 	delete obj.notes;			// notes don't carry over to new items
+	// A due date in the past isn't useful for a new item; bump it to today.
+	if (obj.due && new Date(obj.due) < l.today({ as: 'date' }))
+	{
+		obj.due = l.today();
+	}
 	var row = copyItem(obj);
 	if (row == undefined)
 	{
